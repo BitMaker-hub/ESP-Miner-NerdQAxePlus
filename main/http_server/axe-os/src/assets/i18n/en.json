@@ -135,7 +135,8 @@
     "POOL_MODE_DUAL": "Dual Pool",
     "POOL_BALANCE": "Pool Balance",
     "POOL_BALANCE_HINT": "Distributes jobs between the primary and secondary pool, e.g., 70/30.",
-    "STRATUM": "Stratum Settings"
+    "STRATUM": "Stratum Settings",
+    "SWAP_POOLS": "Swap pools"
   },
   "SYSTEM": {
     "TITLE": "System Information",
@@ -194,7 +195,10 @@
     "RESET_SDIO": "SDIO reset",
     "RESET_NOT_SPECIFIED": "Not specified",
     "ABOUT_NERDQX": " project was developed by an international team of enthusiasts and released as open hardware. NerdQX belongs to the <strong>“ORIGINAL”</strong> initiative, which allows users to find out whether their NerdQX is an original, more about this",
-    "ABOUT_NERDQX_ORIGINAL": " <u>here</u>"
+    "ABOUT_NERDQX_ORIGINAL": " <u>here</u>",
+    "SHUTDOWN": "Shutdown",
+    "SHUTDOWN_SUCCESS": "System is shutting down",
+    "SHUTDOWN_FAILED": "Shutdown failed"
   },
   "SWARM": {
     "TITLE": "Swarm Management",
@@ -369,7 +373,8 @@
     "SETTINGS": "Mining Settings",
     "STRATUM_DIFFICULTY": "Initial Suggested Stratum Difficulty",
     "STRATUM_DIFFICULTY_HELP": "Initial suggested Stratum difficulty",
-    "ENABLE_EXTRANONCE": "Enable Extranonce Subscribe"
+    "ENABLE_EXTRANONCE": "Enable Extranonce Subscribe",
+    "STRATUM_TLS": "Encrypted connection (TLS)"
   },
   "FAN": {
     "TITLE": "Fan Controller",

@@ -41,9 +41,12 @@ SRCS
     "./http_server/handler_ota.cpp"
     "./http_server/handler_otp.cpp"
     "./http_server/handler_restart.cpp"
+    "./http_server/handler_shutdown.cpp"
     "./http_server/handler_file.cpp"
     "./http_server/handler_ota_factory.cpp"
     "./self_test/self_test.cpp"
+    "./stratum/stratum_api.cpp"
+    "./stratum/stratum_transport.cpp"
     "./stratum/stratum_config.cpp"
     "./stratum/stratum_task.cpp"
     "./stratum/stratum_manager.cpp"
@@ -91,9 +94,8 @@ INCLUDE_DIRS
     "../components/dns_server/include"
     "../components/bm1397/include"
     "../components/influx/include"
-    "../components/stratum/include"
 
-    PRIV_REQUIRES
+REQUIRES
     "app_update"
     "driver"
     "esp_adc"
@@ -104,16 +106,18 @@ INCLUDE_DIRS
     "esp_https_ota"
     "esp_netif"
     "esp_timer"
-    "esp-tls"
     "esp_wifi"
     "esp_lcd"
     "esp_psram"
     "json"
+    "tcp_transport"
     "nvs_flash"
     "spiffs"
     "vfs"
     "lvgl"
     "lwip"
+    "esp-tls"
+
 )
 
 

@@ -135,7 +135,8 @@
     "POOL_MODE_DUAL": "Pool dual",
     "POOL_BALANCE": "Balance de pool",
     "POOL_BALANCE_HINT": "Distribuye trabajos entre el pool primario y el secundario, p. ej., 70/30.",
-    "STRATUM": "Configuración de Stratum"
+    "STRATUM": "Configuración de Stratum",
+    "SWAP_POOLS": "Intercambiar pools"
   },
   "SYSTEM": {
     "TITLE": "Información del Sistema",
@@ -194,7 +195,10 @@
     "RESET_SDIO": "Reinicio SDIO",
     "RESET_NOT_SPECIFIED": "No especificado",
     "ABOUT_NERDQX": " proyecto fue desarrollado por un equipo internacional de entusiastas y lanzado como hardware abierto. NerdQX pertenece a la iniciativa <strong>«ORIGINAL»</strong>, que permite a los usuarios averiguar si su NerdQX es original. Más información al respecto",
-    "ABOUT_NERDQX_ORIGINAL": " <u>aquí</u>"
+    "ABOUT_NERDQX_ORIGINAL": " <u>aquí</u>",
+    "SHUTDOWN": "Apagar",
+    "SHUTDOWN_SUCCESS": "El sistema se está apagando",
+    "SHUTDOWN_FAILED": "Error al apagar el sistema"
   },
   "SWARM": {
     "TITLE": "Gestión de Enjambre",
@@ -369,7 +373,8 @@
     "SETTINGS": "Configuración de Minería",
     "STRATUM_DIFFICULTY": "Dificultad Stratum Sugerida",
     "STRATUM_DIFFICULTY_HELP": "Dificultad Stratum inicial sugerida",
-    "ENABLE_EXTRANONCE": "Habilitar Suscripción Extranonce"
+    "ENABLE_EXTRANONCE": "Habilitar Suscripción Extranonce",
+    "STRATUM_TLS": "Conexión cifrada (TLS)"
   },
   "FAN": {
     "TITLE": "Controlador de Ventilador",

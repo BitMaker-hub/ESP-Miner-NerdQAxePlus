@@ -19,6 +19,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+
 #include "macros.h"
 
 // The logging tag for ESP logging.
@@ -33,7 +34,8 @@ StratumApi::StratumApi() : m_len(0), m_send_uid(1)
 
 StratumApi::~StratumApi()
 {
-    // Nothing to free.
+    safe_free(m_buffer);
+    safe_free(m_requestBuffer);
 }
 
 uint8_t StratumApi::hex2val(char c)
@@ -63,24 +65,6 @@ size_t StratumApi::hex2bin(const char *hex, uint8_t *bin, size_t bin_len)
     return len;
 }
 
-int StratumApi::isSocketConnected(int socket)
-{
-    if (socket == -1) {
-        return 0;
-    }
-    struct timeval tv;
-    fd_set writefds;
-
-    tv.tv_sec = 0;
-    tv.tv_usec = 100000; // 100 ms timeout
-
-    FD_ZERO(&writefds);
-    FD_SET(socket, &writefds);
-
-    int ret = select(socket + 1, NULL, &writefds, NULL, &tv);
-    return (ret > 0 && FD_ISSET(socket, &writefds)) ? 1 : 0;
-}
-
 void StratumApi::debugTx(const char *msg)
 {
     const char *newline = strchr(msg, '\n');
@@ -97,66 +81,99 @@ void StratumApi::debugTx(const char *msg)
 // Accumulates data from the given socket until a newline is found.
 // Returns a dynamically allocated line (caller must free the returned memory).
 //--------------------------------------------------------------------
-char *StratumApi::receiveJsonRpcLine(int sockfd)
+void StratumApi::resetBuffer()
 {
-    while (strchr(m_buffer, '\n') == NULL) {
+    m_len = 0;
+    m_buffer[0] = '\0';
+}
+
+char *StratumApi::receiveJsonRpcLine(StratumTransport *transport)
+{
+    // This function blocks until either:
+    // - a full line (terminated by '\n') is available and returned, or
+    // - an error/EOF occurs and NULL is returned.
+
+    for (;;) {
+        // Check if we already have a complete line in the buffer.
+        char *newline_ptr = strchr(m_buffer, '\n');
+        if (newline_ptr != NULL) {
+            // Compute line length up to '\n'.
+            size_t line_length = static_cast<size_t>(newline_ptr - m_buffer);
+
+            // Handle optional '\r' before '\n' (CRLF).
+            if (line_length > 0 && m_buffer[line_length - 1] == '\r') {
+                line_length--;
+            }
+
+            // Allocate memory for the line (without newline / CR).
+            char *line = (char *)MALLOC(line_length + 1);
+            if (line == NULL) {
+                ESP_LOGE(TAG, "Failed to allocate memory for line. Flushing buffer.");
+                resetBuffer();
+                return NULL;
+            }
+
+            // Copy the line and null-terminate it.
+            if (line_length > 0) {
+                memcpy(line, m_buffer, line_length);
+            }
+            line[line_length] = '\0';
+
+            // Remove the consumed line (including the '\n') from the buffer.
+            size_t consumed = static_cast<size_t>(newline_ptr - m_buffer) + 1; // include '\n'
+            size_t remaining = m_len - consumed;
+            if (remaining > 0) {
+                memmove(m_buffer, m_buffer + consumed, remaining);
+            }
+
+            m_len = remaining;
+            m_buffer[m_len] = '\0';
+
+            return line;
+        }
+
+        // No newline in buffer yet → need to read more data.
         if (m_len >= BIG_BUFFER_SIZE - 1) {
             ESP_LOGE(TAG, "Buffer full without newline. Flushing buffer.");
-            m_len = 0;
-            m_buffer[0] = '\0';
+            resetBuffer();
+            return NULL;
         }
-        int available = BIG_BUFFER_SIZE - m_len - 1; // reserve space for terminating null
-        int nbytes = recv(sockfd, m_buffer + m_len, available, 0);
-        if (nbytes == -1) {
+
+        int available = BIG_BUFFER_SIZE - static_cast<int>(m_len) - 1; // reserve space for '\0'
+        int nbytes = transport->recv(m_buffer + m_len, available);
+
+        if (nbytes < 0) {
+            // Error on recv
             if (errno == EWOULDBLOCK || errno == EAGAIN) {
-                ESP_LOGI(TAG, "No transmission from Stratum server. Checking socket ...");
-                if (isSocketConnected(sockfd)) {
-                    ESP_LOGI(TAG, "Socket is still connected.");
-                    continue; // Retry recv() until data arrives.
-                } else {
+                // Timeout / no data right now.
+                if (!transport->isConnected()) {
                     ESP_LOGE(TAG, "Socket is not connected anymore.");
-                    m_len = 0;
-                    m_buffer[0] = '\0';
+                    resetBuffer();
                     return NULL;
                 }
+
+                ESP_LOGD(TAG, "No data available yet, socket still connected.");
+                // Avoid busy-looping and burning CPU.
+                vTaskDelay(pdMS_TO_TICKS(10));
+                continue;
             } else {
                 ESP_LOGE(TAG, "Error in recv: %s", strerror(errno));
-                m_len = 0;
-                m_buffer[0] = '\0';
+                resetBuffer();
                 return NULL;
             }
         } else if (nbytes == 0) {
-            // Remote end closed the connection.
+            // Remote side closed the connection.
+            ESP_LOGI(TAG, "Remote closed the connection.");
+            resetBuffer();
             return NULL;
         }
-        m_len += nbytes;
+
+        // We received some data; append it to the buffer.
+        m_len += static_cast<size_t>(nbytes);
         m_buffer[m_len] = '\0';
     }
-
-    // At this point, the buffer contains at least one newline.
-    char *newline_ptr = strchr(m_buffer, '\n');
-    int line_length = newline_ptr - m_buffer;
-
-    // Allocate memory for the resulting line.
-    char *line = (char *) MALLOC(line_length + 1);
-
-    if (!line) {
-        ESP_LOGE(TAG, "Failed to allocate memory for line.");
-        return NULL;
-    }
-    memcpy(line, m_buffer, line_length);
-    line[line_length] = '\0';
-
-    // Remove the extracted line (including the newline) from the buffer.
-    int remaining = m_len - (line_length + 1);
-    if (remaining > 0) {
-        memmove(m_buffer, newline_ptr + 1, remaining);
-    }
-    m_len = remaining;
-    m_buffer[m_len] = '\0';
-
-    return line;
 }
+
 
 bool StratumApi::parseMethods(JsonDocument &doc, const char *method_str, StratumApiV1Message *message)
 {
@@ -194,6 +211,8 @@ bool StratumApi::parseMethods(JsonDocument &doc, const char *method_str, Stratum
         new_work->n_merkle_branches = merkle_branch.size();
         if (new_work->n_merkle_branches > MAX_MERKLE_BRANCHES) {
             ESP_LOGE(TAG, "Too many Merkle branches.");
+            freeMiningNotify(new_work);
+            safe_free(new_work);
             return false;
         }
 
@@ -383,17 +402,32 @@ void StratumApi::freeMiningNotify(mining_notify *params)
 //--------------------------------------------------------------------
 // send()
 //--------------------------------------------------------------------
-bool StratumApi::send(int socket, const char *message)
+bool StratumApi::send(StratumTransport *transport, const char *message)
 {
     debugTx(message);
 
-    if (!isSocketConnected(socket)) {
+    if (!transport->isConnected()) {
         ESP_LOGI(TAG, "Socket not connected. Cannot send message.");
         return false;
     }
 
-    ssize_t bytes_written = write(socket, message, strlen(message));
-    if (bytes_written == -1) {
+    const char *p = message;
+    size_t remaining = strlen(message);
+
+    while (remaining > 0) {
+        int n = transport->send(p, remaining);
+        if (n > 0) {
+            p += n;
+            remaining -= (size_t)n;
+            continue;
+        }
+
+        // n == 0 means "no progress"; treat like a retryable condition.
+        if (n == 0 || (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK))) {
+            vTaskDelay(pdMS_TO_TICKS(10));
+            continue;
+        }
+
         ESP_LOGE(TAG, "Error writing to socket: %s", strerror(errno));
         return false;
     }
@@ -403,75 +437,75 @@ bool StratumApi::send(int socket, const char *message)
 //--------------------------------------------------------------------
 // subscribe()
 //--------------------------------------------------------------------
-bool StratumApi::subscribe(int socket, const char *device, const char *asic)
+bool StratumApi::subscribe(StratumTransport *transport, const char *device, const char *asic)
 {
     const esp_app_desc_t *app_desc = esp_app_get_description();
     const char *version = app_desc->version;
     snprintf(m_requestBuffer, BUFFER_SIZE, "{\"id\": %d, \"method\": \"mining.subscribe\", \"params\": [\"%s/%s/%s\"]}\n",
              m_send_uid++, device, asic, version);
 
-    return send(socket, m_requestBuffer);
+    return send(transport, m_requestBuffer);
 }
 
 //--------------------------------------------------------------------
 // subscribe()
 //--------------------------------------------------------------------
-bool StratumApi::entranonceSubscribe(int socket)
+bool StratumApi::entranonceSubscribe(StratumTransport *transport)
 {
     const esp_app_desc_t *app_desc = esp_app_get_description();
     const char *version = app_desc->version;
     snprintf(m_requestBuffer, BUFFER_SIZE, "{\"id\": %d, \"method\": \"mining.extranonce.subscribe\", \"params\": []}\n",
         m_send_uid++);
 
-    return send(socket, m_requestBuffer);
+    return send(transport, m_requestBuffer);
 }
 
 //--------------------------------------------------------------------
 // suggestDifficulty()
 //--------------------------------------------------------------------
-bool StratumApi::suggestDifficulty(int socket, uint32_t difficulty)
+bool StratumApi::suggestDifficulty(StratumTransport *transport, uint32_t difficulty)
 {
     snprintf(m_requestBuffer, BUFFER_SIZE, "{\"id\": %d, \"method\": \"mining.suggest_difficulty\", \"params\": [%ld]}\n",
              m_send_uid++, difficulty);
 
-    return send(socket, m_requestBuffer);
+    return send(transport, m_requestBuffer);
 }
 
 //--------------------------------------------------------------------
 // authenticate()
 //--------------------------------------------------------------------
-bool StratumApi::authenticate(int socket, const char *username, const char *pass)
+bool StratumApi::authenticate(StratumTransport *transport, const char *username, const char *pass)
 {
     snprintf(m_requestBuffer, BUFFER_SIZE, "{\"id\": %d, \"method\": \"mining.authorize\", \"params\": [\"%s\", \"%s\"]}\n",
              m_send_uid++, username, pass);
 
-    return send(socket, m_requestBuffer);
+    return send(transport, m_requestBuffer);
 }
 
 //--------------------------------------------------------------------
 // submitShare()
 //--------------------------------------------------------------------
-bool StratumApi::submitShare(int socket, const char *username, const char *jobid, const char *extranonce_2, uint32_t ntime,
+bool StratumApi::submitShare(StratumTransport *transport, const char *username, const char *jobid, const char *extranonce_2, uint32_t ntime,
                              uint32_t nonce, uint32_t version)
 {
     snprintf(m_requestBuffer, BUFFER_SIZE,
              "{\"id\": %d, \"method\": \"mining.submit\", \"params\": [\"%s\", \"%s\", \"%s\", \"%08lx\", \"%08lx\", \"%08lx\"]}\n",
              m_send_uid++, username, jobid, extranonce_2, ntime, nonce, version);
 
-    return send(socket, m_requestBuffer);
+    return send(transport, m_requestBuffer);
 }
 
 //--------------------------------------------------------------------
 // configureVersionRolling()
 //--------------------------------------------------------------------
-bool StratumApi::configureVersionRolling(int socket)
+bool StratumApi::configureVersionRolling(StratumTransport *transport)
 {
     snprintf(m_requestBuffer, BUFFER_SIZE,
              "{\"id\": %d, \"method\": \"mining.configure\", \"params\": [[\"version-rolling\"], {\"version-rolling.mask\": "
              "\"1fffe000\"}]}\n",
              m_send_uid++);
 
-    return send(socket, m_requestBuffer);
+    return send(transport, m_requestBuffer);
 }
 
 //--------------------------------------------------------------------
