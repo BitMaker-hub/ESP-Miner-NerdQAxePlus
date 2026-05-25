@@ -1,3 +1,4 @@
+#include <math.h>
 #include "esp_ota_ops.h"
 #include "esp_http_server.h"
 #include "esp_log.h"
@@ -12,6 +13,7 @@
 #include "http_utils.h"
 
 #include "ping_task.h"
+#include "tasks/can_master_task.h"
 
 static const char *TAG = "http_system";
 
@@ -38,9 +40,14 @@ esp_err_t GET_system_info(httpd_req_t *req)
     }
 
     // Parse optional start_timestamp parameter
+    const uint64_t DEFAULT_HISTORY_SPAN_MS = 3600ULL * 1000ULL;
+    const uint64_t MAX_HISTORY_SPAN_MS = 3ULL * 3600ULL * 1000ULL;
+
     uint64_t start_timestamp = 0;
     uint64_t current_timestamp = 0;
+    uint32_t history_limit = 0;
     bool history_requested = false;
+    uint64_t history_span_ms = DEFAULT_HISTORY_SPAN_MS;
     char query_str[128];
     if (httpd_req_get_url_query_str(req, query_str, sizeof(query_str)) == ESP_OK) {
         char param[64];
@@ -48,6 +55,21 @@ esp_err_t GET_system_info(httpd_req_t *req)
             start_timestamp = strtoull(param, NULL, 10);
             if (start_timestamp) {
                 history_requested = true;
+            }
+        }
+        if (httpd_query_key_value(query_str, "limit", param, sizeof(param)) == ESP_OK) {
+            history_limit = strtoul(param, NULL, 10);
+            if (history_limit > 1000) {
+                history_limit = 1000;
+            }
+        }
+        if (httpd_query_key_value(query_str, "history_span", param, sizeof(param)) == ESP_OK) {
+            history_span_ms = strtoull(param, NULL, 10);
+            if (history_span_ms > MAX_HISTORY_SPAN_MS) {
+                history_span_ms = MAX_HISTORY_SPAN_MS;
+            }
+            if (history_span_ms == 0) {
+                history_span_ms = DEFAULT_HISTORY_SPAN_MS;
             }
         }
         if (httpd_query_key_value(query_str, "cur", param, sizeof(param)) == ESP_OK) {
@@ -84,12 +106,15 @@ esp_err_t GET_system_info(httpd_req_t *req)
     doc["power"]              = POWER_MANAGEMENT_MODULE.getPower();
     doc["maxPower"]           = board->getMaxPin();
     doc["minPower"]           = board->getMinPin();
-    doc["voltage"]            = POWER_MANAGEMENT_MODULE.getVoltage();
     doc["maxVoltage"]         = board->getMaxVin();
     doc["minVoltage"]         = board->getMinVin();
-    doc["current"]            = POWER_MANAGEMENT_MODULE.getCurrent();
+    doc["current"]            = POWER_MANAGEMENT_MODULE.getCurrent();           // mA (raw)
+    doc["currentA"]           = POWER_MANAGEMENT_MODULE.getCurrent() / 1000.0f; // A (UI)
+    doc["minCurrentA"]        = board->getMinCurrentA(); // A
+    doc["maxCurrentA"]        = board->getMaxCurrentA(); // A
     doc["temp"]               = POWER_MANAGEMENT_MODULE.getChipTempMax();
     doc["vrTemp"]             = POWER_MANAGEMENT_MODULE.getVRTemp();
+    doc["vrTempInt"]          = POWER_MANAGEMENT_MODULE.getVRTempInt();
     doc["hashRateTimestamp"]  = history->getCurrentTimestamp();
     // set hashrate values to 0 in shutdown
     doc["hashRate"]           = !shutdown ? SYSTEM_MODULE.getCurrentHashrate() : 0.0;
@@ -103,15 +128,27 @@ esp_err_t GET_system_info(httpd_req_t *req)
     doc["fanspeed"]           = POWER_MANAGEMENT_MODULE.getFanPerc();
     doc["manualFanSpeed"]     = Config::getFanSpeed();
     doc["fanrpm"]             = POWER_MANAGEMENT_MODULE.getFanRPM(0);
+    doc["fanrpm2"]            = (board->getNumFans() > 1) ? POWER_MANAGEMENT_MODULE.getFanRPM(1) : 0;
+    doc["fanspeed2"]          = (board->getNumFans() > 1) ? POWER_MANAGEMENT_MODULE.getFanPerc(1) : 0;
+    doc["fanCount"]           = board->getNumFans();
+
+
     doc["lastpingrtt"]        = get_last_ping_rtt();
     doc["recentpingloss"]     = get_recent_ping_loss();
     doc["shutdown"]           = POWER_MANAGEMENT_MODULE.isShutdown();
+    JsonObject can_obj = doc["can"].to<JsonObject>();
+    can_obj["hasExtension"] = board->hasCanExtension();
+    can_obj["enabled"]      = Config::isCanEnabled();
+    if (Config::isCanEnabled()) {
+        can_obj["fleetPower"] = POWER_MANAGEMENT_MODULE.getPower() + can_master_get_slave_fleet_power();
+    }
     doc["duplicateHWNonces"]  = getDuplicateHWNonces();
 
     JsonObject stratum_obj = doc["stratum"].to<JsonObject>();
 
     // kept for swarm compatibility
     doc["poolDifficulty"]     = STRATUM_MANAGER->getPoolDifficulty();
+    doc["networkDifficulty"]  = STRATUM_MANAGER->getNetworkDifficulty();
     doc["foundBlocks"]        = STRATUM_MANAGER->getFoundBlocks();
     doc["totalFoundBlocks"]   = STRATUM_MANAGER->getTotalFoundBlocks();
     doc["sharesAccepted"]     = STRATUM_MANAGER->getSharesAccepted();
@@ -120,6 +157,35 @@ esp_err_t GET_system_info(httpd_req_t *req)
     doc["bestSessionDiff"]    = STRATUM_MANAGER->getBestSessionDiff();
 
     STRATUM_MANAGER->getManagerInfoJson(stratum_obj);
+
+    // Block header / coinbase data (one entry per pool)
+    {
+        JsonArray blockHeaders = doc["blockHeaders"].to<JsonArray>();
+        for (int p = 0; p < 2; p++) {
+            const coinbase_result_t cb = STRATUM_MANAGER->getCoinbaseResult(p);
+            if (cb.block_height > 0) {
+                JsonObject bh = blockHeaders.add<JsonObject>();
+                bh["pool"]       = p;
+                bh["blockHeight"] = cb.block_height;
+                bh["networkDifficulty"] = cb.network_difficulty;
+                bh["scriptsig"]  = cb.scriptsig;
+
+                if (Config::getCoinbaseVerifyMode(p) > 0) {
+                    bh["coinbaseValueTotalSatoshis"] = cb.total_value_satoshis;
+                    bh["coinbaseValueUserSatoshis"]  = cb.user_value_satoshis;
+                    bh["verificationOk"] = STRATUM_MANAGER->getVerificationOk(p);
+                    bh["verificationFailCount"] = STRATUM_MANAGER->getVerificationFailCount(p);
+                    bh["verificationCheckCount"] = STRATUM_MANAGER->getVerificationCheckCount(p);
+                }
+            }
+        }
+        doc["coinbaseVerifyMode"]         = Config::getCoinbaseVerifyMode(0);
+        doc["coinbaseMaxFee"]             = Config::getCoinbaseMaxFee(0) / 10.0f;
+        doc["coinbaseVerifyForce"]        = Config::getCoinbaseVerifyForce(0);
+        doc["fallbackCoinbaseVerifyMode"] = Config::getCoinbaseVerifyMode(1);
+        doc["fallbackCoinbaseMaxFee"]     = Config::getCoinbaseMaxFee(1) / 10.0f;
+        doc["fallbackCoinbaseVerifyForce"] = Config::getCoinbaseVerifyForce(1);
+    }
 
     // asic temps
     {
@@ -131,11 +197,12 @@ esp_err_t GET_system_info(httpd_req_t *req)
 
     // If history was requested, add the history data as a nested object
     if (!shutdown && history_requested) {
-        uint64_t end_timestamp = start_timestamp + 3600 * 1000ULL; // 1 hour later
+        uint64_t span = history_span_ms;
+        uint64_t end_timestamp = start_timestamp + span;
         JsonObject json_history = doc["history"].to<JsonObject>();
 
         History *history = SYSTEM_MODULE.getHistory();
-        history->exportHistoryData(json_history, start_timestamp, end_timestamp, current_timestamp);
+        history->exportHistoryData(json_history, start_timestamp, end_timestamp, current_timestamp, history_limit);
     }
 
     // settings
@@ -144,6 +211,27 @@ esp_err_t GET_system_info(httpd_req_t *req)
     doc["pidP"]               = (float) pid->p / 100.0f;
     doc["pidI"]               = (float) pid->i / 100.0f;
     doc["pidD"]               = (float) pid->d / 100.0f;
+
+    // Per-channel fan settings (new API; ch0 mirrors existing flat fields for compat)
+    {
+        JsonArray fans = doc["fans"].to<JsonArray>();
+        int numFans = board->getNumFans();
+        for (int ch = 0; ch < numFans; ch++) {
+            PidSettings* fanPid = board->getPidSettings(ch);
+            JsonObject fan = fans.add<JsonObject>();
+            fan["label"]        = board->getFanLabel(ch);
+            fan["mode"]         = Config::getFanMode(ch);
+            fan["manualSpeed"]  = Config::getFanManualSpeed(ch);
+            fan["overheatTemp"] = Config::getFanOverheatTemp(ch);
+            fan["rpm"]          = POWER_MANAGEMENT_MODULE.getFanRPM(ch);
+            fan["speedPerc"]    = POWER_MANAGEMENT_MODULE.getFanPerc(ch);
+            JsonObject pid_obj  = fan["pid"].to<JsonObject>();
+            pid_obj["targetTemp"] = board->isPIDAvailable() ? (int) fanPid->targetTemp : -1;
+            pid_obj["p"]          = (float) fanPid->p / 100.0f;
+            pid_obj["i"]          = (float) fanPid->i / 100.0f;
+            pid_obj["d"]          = (float) fanPid->d / 100.0f;
+        }
+    }
 
     doc["hostname"]           = hostname;
     doc["ssid"]               = ssid;
@@ -157,6 +245,18 @@ esp_err_t GET_system_info(httpd_req_t *req)
     doc["fallbackStratumUser"] = fallbackStratumUser;
     doc["fallbackStratumEnonceSubscribe"] = Config::isStratumFallbackEnonceSubscribe();
     doc["fallbackStratumTLS"] = Config::isStratumFallbackTLS();
+    doc["stratumProtocol"]    = Config::getStratumProtocol();
+    doc["fallbackStratumProtocol"] = Config::getFallbackStratumProtocol();
+    {
+        char *sv2_auth = Config::getSV2AuthorityPubkey();
+        doc["sv2AuthorityPubkey"] = sv2_auth ? sv2_auth : "";
+        safe_free(sv2_auth);
+        char *fb_sv2_auth = Config::getFallbackSV2AuthorityPubkey();
+        doc["fallbackSv2AuthorityPubkey"] = fb_sv2_auth ? fb_sv2_auth : "";
+        safe_free(fb_sv2_auth);
+    }
+    doc["sv2ChannelType"]     = Config::getSV2ChannelType();
+    doc["fallbackSv2ChannelType"] = Config::getFallbackSV2ChannelType();
     doc["voltage"]            = POWER_MANAGEMENT_MODULE.getVoltage();
     doc["frequency"]          = board->getAsicFrequency();
     doc["defaultFrequency"]   = board->getDefaultAsicFrequency();
@@ -289,6 +389,11 @@ esp_err_t PATCH_update_settings(httpd_req_t *req)
         Config::setStratumKeepaliveEnabled(value);
         ESP_LOGI("system", "stratum_keep updated via WebUI: %s", value ? "ENABLED" : "DISABLED");
     }
+    if (doc["canMaster"].is<bool>() || doc["canMaster"].is<int>()) {
+        bool value = doc["canMaster"].as<int>() != 0;
+        Config::setCanEnabled(value);
+        ESP_LOGI("system", "canMaster updated via WebUI: %s", value ? "ENABLED" : "DISABLED");
+    }
     if (doc["pidTargetTemp"].is<uint16_t>()) {
         Config::setPidTargetTemp(doc["pidTargetTemp"].as<uint16_t>());
     }
@@ -307,6 +412,76 @@ esp_err_t PATCH_update_settings(httpd_req_t *req)
     }
 #endif
 
+    // Per-channel fan settings: fans[0] maps to ch0 NVS keys, fans[1] to ch1 NVS keys
+    if (doc["fans"].is<JsonArray>()) {
+        JsonArray fans = doc["fans"].as<JsonArray>();
+        int ch = 0;
+        for (JsonObject fan : fans) {
+            if (ch > 1) break;
+            if (fan["mode"].is<uint16_t>())
+                Config::setFanMode(ch, fan["mode"].as<uint16_t>());
+            if (fan["manualSpeed"].is<uint16_t>())
+                Config::setFanManualSpeed(ch, fan["manualSpeed"].as<uint16_t>());
+            if (fan["overheatTemp"].is<uint16_t>())
+                Config::setFanOverheatTemp(ch, fan["overheatTemp"].as<uint16_t>());
+            if (fan["pid"].is<JsonObject>()) {
+                JsonObject p = fan["pid"].as<JsonObject>();
+                if (p["targetTemp"].is<uint16_t>())
+                    Config::setFanPidTargetTemp(ch, p["targetTemp"].as<uint16_t>());
+                if (p["p"].is<float>())
+                    Config::setFanPidP(ch, (uint16_t) (p["p"].as<float>() * 100.0f));
+                if (p["i"].is<float>())
+                    Config::setFanPidI(ch, (uint16_t) (p["i"].as<float>() * 100.0f));
+                if (p["d"].is<float>())
+                    Config::setFanPidD(ch, (uint16_t) (p["d"].as<float>() * 100.0f));
+            }
+            ch++;
+        }
+    }
+
+    // Coinbase verification settings (per pool) — read old values before saving for change detection
+    bool verifyChanged[2] = {false, false};
+
+    if (doc["coinbaseVerifyMode"].is<uint16_t>()) {
+        verifyChanged[0] |= Config::getCoinbaseVerifyMode(0) != doc["coinbaseVerifyMode"].as<uint16_t>();
+        Config::setCoinbaseVerifyMode(0, doc["coinbaseVerifyMode"].as<uint16_t>());
+    }
+    if (doc["coinbaseMaxFee"].is<float>()) {
+        uint16_t newVal = (uint16_t)roundf(doc["coinbaseMaxFee"].as<float>() * 10.0f);
+        verifyChanged[0] |= Config::getCoinbaseMaxFee(0) != newVal;
+        Config::setCoinbaseMaxFee(0, newVal);
+    }
+    if (doc["coinbaseVerifyForce"].is<bool>()) {
+        verifyChanged[0] |= Config::getCoinbaseVerifyForce(0) != doc["coinbaseVerifyForce"].as<bool>();
+        Config::setCoinbaseVerifyForce(0, doc["coinbaseVerifyForce"].as<bool>());
+    }
+    if (doc["fallbackCoinbaseVerifyMode"].is<uint16_t>()) {
+        verifyChanged[1] |= Config::getCoinbaseVerifyMode(1) != doc["fallbackCoinbaseVerifyMode"].as<uint16_t>();
+        Config::setCoinbaseVerifyMode(1, doc["fallbackCoinbaseVerifyMode"].as<uint16_t>());
+    }
+    if (doc["fallbackCoinbaseMaxFee"].is<float>()) {
+        uint16_t newVal = (uint16_t)roundf(doc["fallbackCoinbaseMaxFee"].as<float>() * 10.0f);
+        verifyChanged[1] |= Config::getCoinbaseMaxFee(1) != newVal;
+        Config::setCoinbaseMaxFee(1, newVal);
+    }
+    if (doc["fallbackCoinbaseVerifyForce"].is<bool>()) {
+        verifyChanged[1] |= Config::getCoinbaseVerifyForce(1) != doc["fallbackCoinbaseVerifyForce"].as<bool>();
+        Config::setCoinbaseVerifyForce(1, doc["fallbackCoinbaseVerifyForce"].as<bool>());
+    }
+
+    // Re-run verification for changed pools, reset stats/block only if settings actually changed
+    for (int i = 0; i < 2; i++) {
+        if (verifyChanged[i]) {
+            STRATUM_MANAGER->clearVerifyBlocked(i);
+            STRATUM_MANAGER->resetVerificationStats(i);
+        }
+        STRATUM_MANAGER->rerunVerification(i);
+    }
+    if (SYSTEM_MODULE.getBoardError() == Board::Error::COINBASE_VERIFY_FAULT &&
+        !STRATUM_MANAGER->isVerifyBlocked(0) && !STRATUM_MANAGER->isVerifyBlocked(1)) {
+        SYSTEM_MODULE.clearBoardError();
+    }
+
     // save stratum settings
     STRATUM_MANAGER->saveSettings(doc);
 
@@ -318,6 +493,9 @@ esp_err_t PATCH_update_settings(httpd_req_t *req)
     // Reload settings after update
     Board* board = SYSTEM_MODULE.getBoard();
     board->loadSettings();
+
+    // Reload fan controller settings (picks up both ch0 and ch1 changes)
+    POWER_MANAGEMENT_MODULE.getFanController().loadSettings();
 
     // reload settings of system module (and display)
     SYSTEM_MODULE.loadSettings();
@@ -380,4 +558,19 @@ esp_err_t GET_system_asic(httpd_req_t *req)
     esp_err_t ret = sendJsonResponse(req, doc);
     doc.clear();
     return ret;
+}
+
+esp_err_t POST_reset_stats(httpd_req_t *req)
+{
+    ConGuard g(http_server, req);
+
+    if (is_network_allowed(req) != ESP_OK) {
+        return httpd_resp_send_err(req, HTTPD_401_UNAUTHORIZED, "Unauthorized");
+    }
+
+    STRATUM_MANAGER->resetSessionStats();
+
+    ESP_LOGI(TAG, "Session stats reset by user");
+    httpd_resp_set_status(req, "204 No Content");
+    return httpd_resp_send(req, NULL, 0);
 }

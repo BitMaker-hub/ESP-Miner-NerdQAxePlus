@@ -6,6 +6,7 @@ import { LocalStorageService } from '../../services/local-storage.service';
 import { SystemService } from 'src/app/services/system.service';
 import { NbToastrService } from '@nebular/theme';
 import { LoadingService } from '../../services/loading.service';
+import { IPool } from '../../models/IStratum';
 
 const SWARM_DATA = 'SWARM_DATA';
 const SWARM_REFRESH_TIME = 'SWARM_REFRESH_TIME';
@@ -69,7 +70,7 @@ export class SwarmComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    this.systemService.getInfo(0)
+    this.systemService.getInfo()
       .pipe(this.loadingService.lockUIUntilComplete())
       .subscribe({
         next: (info) => {
@@ -201,7 +202,7 @@ export class SwarmComponent implements OnInit, OnDestroy {
     }
 
     forkJoin({
-      info: this.systemService.getInfo(0, `http://${newIp}`),
+      info: this.systemService.getInfo(0, 0, `http://${newIp}`),
       asic: this.httpClient.get<any>(`http://${newIp}/api/system/asic`).pipe(
         timeout(5000),
         catchError(() => of(null))
@@ -434,21 +435,17 @@ export class SwarmComponent implements OnInit, OnDestroy {
 
   public getActiveBalance(axe, i: 0 | 1) {
     const stratum = axe.stratum;
-    const connected = stratum.pools.map(p => p.connected);
+    const active = stratum.pools.map((p: IPool) => p.connected && !p.verifyBlocked);
     const balance = stratum.poolBalance;
 
-    // If neither pool is connected
-    if (!connected[0] && !connected[1]) {
-      return 0;
-    }
+    // If neither pool is active
+    if (!active[0] && !active[1]) return 0;
 
-    // If both pools are connected
-    if (connected[0] && connected[1]) {
-      return i === 0 ? balance : 100 - balance;
-    }
+    // If both pools are active
+    if (active[0] && active[1]) return i === 0 ? balance : 100 - balance;
 
-    // Only one pool is connected → return 100 for that pool, 0 for the other
-    return connected[i] ? 100 : 0;
+    // Only one pool is active → return 100 for that pool, 0 for the other
+    return active[i] ? 100 : 0;
   }
 
   public isPoolConnected(axe, i: 0 | 1) {

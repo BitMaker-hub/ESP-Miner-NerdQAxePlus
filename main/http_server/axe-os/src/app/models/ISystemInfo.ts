@@ -13,9 +13,13 @@ export interface ISystemInfo {
     voltage: number,
     maxVoltage: number,
     minVoltage: number,
-    current: number,
+    current: number,  // mA (raw)
+    currentA?: number;
+    minCurrentA?: number;
+    maxCurrentA?: number;
     temp: number,
     vrTemp: number,
+    vrTempInt: number,
     hashRateTimestamp: number,
     hashRate: number,
     hashRate_10m: number,
@@ -51,6 +55,12 @@ export interface ISystemInfo {
     fallbackStratumUser: string,
     fallbackStratumEnonceSubscribe: number,
     fallbackStratumTLS: number,
+    stratumProtocol: number,
+    fallbackStratumProtocol: number,
+    sv2AuthorityPubkey: string,
+    fallbackSv2AuthorityPubkey: string,
+    sv2ChannelType: number,
+    fallbackSv2ChannelType: number,
     stratumDifficulty: number,
     poolDifficulty: number,
     frequency: number,
@@ -61,6 +71,18 @@ export interface ISystemInfo {
     fanspeed: number,
     manualFanSpeed: number,
     fanrpm: number,
+    fanrpm2?: number,
+    fanspeed2?: number,
+    fanCount?: number,
+    fans?: {
+        label?: string,
+        mode: number,
+        manualSpeed: number,
+        overheatTemp: number,
+        rpm: number,
+        speedPerc: number,
+        pid: { targetTemp: number, p: number, i: number, d: number }
+    }[],
     coreVoltageActual: number,
     lastResetReason: string,
     jobInterval: number,
@@ -70,6 +92,7 @@ export interface ISystemInfo {
     defaultVrFrequency?: number,
     vrFrequency: number,
     shutdown: boolean,
+    can?: { hasExtension: boolean, enabled: boolean, fleetPower?: number },
 
     stratum: IStratum,
 
@@ -89,6 +112,31 @@ export interface ISystemInfo {
     history: IHistory
 
     otp: boolean,
+
+    networkDifficulty?: number,
+
+    // Block header / coinbase data (array, one per pool with data)
+    blockHeaders?: IBlockHeader[],
+
+    // Coinbase verification settings (per pool)
+    coinbaseVerifyMode?: number,
+    coinbaseMaxFee?: number,
+    coinbaseVerifyForce?: boolean,
+    fallbackCoinbaseVerifyMode?: number,
+    fallbackCoinbaseMaxFee?: number,
+    fallbackCoinbaseVerifyForce?: boolean,
+}
+
+export interface IBlockHeader {
+    pool: number,
+    blockHeight: number,
+    networkDifficulty: number,
+    scriptsig?: string,
+    coinbaseValueTotalSatoshis?: number,
+    coinbaseValueUserSatoshis?: number,
+    verificationOk?: boolean,
+    verificationFailCount?: number,
+    verificationCheckCount?: number,
 }
 
 // fields swam is using
@@ -108,5 +156,6 @@ export interface ISwarmInfo {
     ASICModel: eASICModel,
     deviceModel: string,
     poolDifficulty: number,
+    networkDifficulty: number,
     version: string,
 }

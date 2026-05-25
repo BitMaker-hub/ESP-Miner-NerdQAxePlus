@@ -22,6 +22,8 @@ NerdEko::NerdEko() : NerdQaxePlus2()
     m_minPin = 30.0;
     m_maxVin = 13.0;
     m_minVin = 8.0;
+    m_minCurrentA = 0.0f;
+    m_maxCurrentA = 25.0f;
 
     m_asicMaxDifficulty = 8192;
     m_asicMinDifficulty = 2048;

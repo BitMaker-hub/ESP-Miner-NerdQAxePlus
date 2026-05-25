@@ -5,12 +5,12 @@
 
 #define LIBRARY_VERSION	1.2.6
 
-#define AUTOMATIC	1
-#define MANUAL	    0
-#define DIRECT      0
-#define REVERSE     1
-#define P_ON_M      0
-#define P_ON_E      1
+#define PID_AUTOMATIC	1
+#define PID_MANUAL	    0
+#define PID_DIRECT      0
+#define PID_REVERSE     1
+#define PID_P_ON_M      0
+#define PID_P_ON_E      1
 
 // we need packed here (for memcmp)
 struct __attribute__((packed)) PidSettings {

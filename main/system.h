@@ -3,6 +3,11 @@
 #include <ctime>
 #include <stdint.h>
 #include <string.h>
+#include <pthread.h>
+
+#include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
+#include "esp_timer.h"
 
 #include "boards/board.h"
 #include "displays/displayDriver.h"
@@ -11,6 +16,7 @@
 #include "freertos/queue.h"
 #include "history.h"
 #include "sntp.h"
+
 
 // Configuration and constants
 #define STRATUM_USER CONFIG_STRATUM_USER
@@ -48,7 +54,6 @@ class System {
     History *m_history;
 
     // Network interface
-    esp_netif_t *m_netif;         // ESP32 network interface structure
     esp_netif_ip_info_t m_ipInfo; // IP information for the network interface
 
     // FreeRTOS queue for handling user input
@@ -60,21 +65,25 @@ class System {
     // board
     Board *m_board;
 
+    pthread_mutex_t m_loop_mutex = PTHREAD_MUTEX_INITIALIZER;
+    pthread_cond_t m_loop_cond = PTHREAD_COND_INITIALIZER;
+    TimerHandle_t m_timer;
+
     // Internal helper methods for system management
-    void initSystem();                                 // Initialize system components
-    void updateHashrate();                             // Update the hashrate
-    void updateBestDiff();                             // Update the best difficulty found
-    void clearDisplay();                               // Clear the display
-    void updateSystemInfo();                           // Update system information
-    void updateEsp32Info();                            // Update ESP32-specific information
     void initConnection();                             // Initialize network connection
     void updateConnection();                           // Update connection status
     void updateSystemPerformance();                    // Update performance metrics
     void showApInformation(const char *error);         // Show Access Point (AP) information with optional error message
     double calculateNetworkDifficulty(uint32_t nBits); // Calculate network difficulty based on pool difficulty
 
+    bool startTimer();
+    void trigger();
+    static void timerWrapper(TimerHandle_t xTimer);
   public:
     System();
+
+    void init();                                 // Initialize system components
+    void initDisplay();
 
     // Task wrapper for FreeRTOS task creation
     static void taskWrapper(void *pvParameters);
@@ -119,6 +128,14 @@ class System {
     {
         m_errorCode = code;
         m_boardError = error;
+    }
+
+    Board::Error getBoardError() const { return m_boardError; }
+
+    void clearBoardError()
+    {
+        m_errorCode = 0;
+        m_boardError = Board::Error::NONE;
     }
 
     // WiFi-related getters and setters
@@ -198,4 +215,8 @@ class System {
     void pushShare(int nr) {
         m_history->pushShare(nr);
     }
+
+    void pushHistory();
+
+    esp_netif_t* getWifiInterface();
 };

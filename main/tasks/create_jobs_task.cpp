@@ -9,6 +9,9 @@
 #include "mining.h"
 
 #include "global_state.h"
+#include "create_jobs_task.h"
+#include "can_sender.h"
+#include "can_master_task.h"
 
 #include "boards/board.h"
 #include "macros.h"
@@ -24,7 +27,17 @@ pthread_cond_t job_cond = PTHREAD_COND_INITIALIZER;
 
 pthread_mutex_t current_stratum_job_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-class MiningInfo {
+// ============================================================================
+// MiningInfoBase - abstract interface for protocol-agnostic job construction
+// ============================================================================
+
+MiningInfoBase::~MiningInfoBase() {}
+
+// ============================================================================
+// MiningInfoV1 - Stratum V1 job construction
+// ============================================================================
+
+class MiningInfoV1 : public MiningInfoBase {
   public:
     mining_notify *current_job = nullptr;
 
@@ -39,10 +52,97 @@ class MiningInfo {
     uint32_t version_mask = 0;
 
   public:
-    MiningInfo()
+    MiningInfoV1()
     {
         current_job = (mining_notify *) CALLOC(1, sizeof(mining_notify));
     }
+
+    ~MiningInfoV1() override
+    {
+        safe_free(extranonce_str);
+        safe_free(next_extranonce_str);
+        if (current_job) {
+            safe_free(current_job->job_id);
+            safe_free(current_job->coinbase_1);
+            safe_free(current_job->coinbase_2);
+            free(current_job);
+        }
+    }
+
+    // --- MiningInfoBase interface ---
+
+    bm_job* buildBmJob(uint32_t extranonce_2, int pool_id, uint32_t asic_diff) override
+    {
+        // generate extranonce2 hex string
+        char extranonce_2_str[extranonce_2_len * 2 + 1]; // +1 zero termination
+        snprintf(extranonce_2_str, sizeof(extranonce_2_str), "%0*lx", (int) extranonce_2_len * 2, (unsigned long) extranonce_2);
+
+        // generate coinbase tx
+        int coinbase_tx_len = strlen(current_job->coinbase_1) + strlen(extranonce_str) + strlen(extranonce_2_str) +
+                              strlen(current_job->coinbase_2);
+        char *coinbase_tx = (char *) MALLOC(coinbase_tx_len + 1);
+        snprintf(coinbase_tx, coinbase_tx_len + 1, "%s%s%s%s", current_job->coinbase_1, extranonce_str,
+                 extranonce_2_str, current_job->coinbase_2);
+
+        // calculate merkle root
+        char merkle_root[65];
+        calculate_merkle_root_hash(coinbase_tx, current_job->_merkle_branches, current_job->n_merkle_branches,
+                                   merkle_root);
+        free(coinbase_tx);
+
+        // we need malloc because we will save it in the job array
+        bm_job *next_job = (bm_job *) MALLOC(sizeof(bm_job));
+        construct_bm_job(current_job, merkle_root, version_mask, next_job);
+        next_job->jobid = strdup(current_job->job_id);
+        next_job->extranonce2 = strdup(extranonce_2_str);
+        next_job->pool_diff = active_stratum_difficulty;
+        next_job->pool_id = pool_id;
+        next_job->asic_diff = asic_diff;
+
+        return next_job;
+    }
+
+    bool isValid() const override
+    {
+        return current_job->ntime != 0;
+    }
+
+    bool isNewWork(uint32_t &last_ntime) const override
+    {
+        if (last_ntime != current_job->ntime) {
+            last_ntime = current_job->ntime;
+            return true;
+        }
+        return false;
+    }
+
+    const char* getJobId() const override
+    {
+        return current_job->job_id;
+    }
+
+    uint32_t getActiveDifficulty() const override
+    {
+        return active_stratum_difficulty;
+    }
+
+    uint32_t getVersionMask() const override
+    {
+        return version_mask;
+    }
+
+    void invalidate() override
+    {
+        // mark as invalid
+        current_job->ntime = 0;
+        safe_free(extranonce_str);
+        safe_free(next_extranonce_str);
+        safe_free(current_job->job_id);
+        safe_free(current_job->coinbase_1);
+        safe_free(current_job->coinbase_2);
+    }
+
+    // --- V1-specific methods ---
 
     void set_version_mask(uint32_t mask)
     {
@@ -100,20 +200,11 @@ class MiningInfo {
         // set active difficulty with the mining.notify command
         active_stratum_difficulty = stratum_difficulty;
     }
-
-    void invalidate()
-    {
-        // mark as invalid
-        current_job->ntime = 0;
-        safe_free(extranonce_str);
-        safe_free(next_extranonce_str);
-        safe_free(current_job->job_id);
-        safe_free(current_job->coinbase_1);
-        safe_free(current_job->coinbase_2);
-    }
 };
 
-MiningInfo miningInfo[2] = {MiningInfo{}, MiningInfo{}};
+// Global mining info instances - one per pool slot
+static MiningInfoV1 s_miningInfoV1[2] = {MiningInfoV1{}, MiningInfoV1{}};
+MiningInfoBase* miningInfo[2] = {&s_miningInfoV1[0], &s_miningInfoV1[1]};
 
 #define min(a, b) ((a < b) ? (a) : (b))
 #define max(a, b) ((a > b) ? (a) : (b))
@@ -132,28 +223,42 @@ void trigger_job_creation()
     pthread_mutex_unlock(&job_mutex);
 }
 
+// Ensure miningInfo[pool] points to the V1 instance.
+// Called by all V1 free functions to handle mixed-protocol fallback
+// (e.g., pool was SV2 and switched to V1 - miningInfo might still
+// point to a V2 instance from create_jobs_sv2.cpp).
+static MiningInfoV1* ensureV1(int pool)
+{
+    if (miningInfo[pool] != &s_miningInfoV1[pool]) {
+        // Reset to V1 instance (V2 instances are owned by create_jobs_sv2.cpp)
+        s_miningInfoV1[pool].invalidate();
+        miningInfo[pool] = &s_miningInfoV1[pool];
+    }
+    return &s_miningInfoV1[pool];
+}
+
 void create_job_set_version_mask(int pool, uint32_t mask)
 {
     PThreadGuard g(current_stratum_job_mutex);
-    miningInfo[pool].set_version_mask(mask);
+    ensureV1(pool)->set_version_mask(mask);
 }
 
 bool create_job_set_difficulty(int pool, uint32_t difficulty)
 {
     PThreadGuard g(current_stratum_job_mutex);
-    return miningInfo[pool].set_difficulty(difficulty);
+    return ensureV1(pool)->set_difficulty(difficulty);
 }
 
 void create_job_set_enonce(int pool, char *enonce, int enonce2_len)
 {
     PThreadGuard g(current_stratum_job_mutex);
-    miningInfo[pool].set_enonce(enonce, enonce2_len);
+    ensureV1(pool)->set_enonce(enonce, enonce2_len);
 }
 
 void set_next_enonce(int pool, char *enonce, int enonce2_len)
 {
     PThreadGuard g(current_stratum_job_mutex);
-    miningInfo[pool].set_next_enonce(enonce, enonce2_len);
+    ensureV1(pool)->set_next_enonce(enonce, enonce2_len);
 }
 
 void create_job_mining_notify(int pool, mining_notify *notify, bool abandonWork)
@@ -164,7 +269,7 @@ void create_job_mining_notify(int pool, mining_notify *notify, bool abandonWork)
         if (abandonWork) {
             asicJobs.cleanJobs(pool);
         }
-        miningInfo[pool].create_job_mining_notify(notify);
+        ensureV1(pool)->create_job_mining_notify(notify);
     }
     trigger_job_creation();
 }
@@ -172,11 +277,11 @@ void create_job_mining_notify(int pool, mining_notify *notify, bool abandonWork)
 void create_job_invalidate(int pool)
 {
     PThreadGuard g(current_stratum_job_mutex);
-    miningInfo[pool].invalidate();
+    miningInfo[pool]->invalidate();
     asicJobs.cleanJobs(pool);
 }
 
-void *create_jobs_task(void *pvParameters)
+void create_jobs_task(void *pvParameters)
 {
     Board *board = SYSTEM_MODULE.getBoard();
     Asic *asics = board->getAsics();
@@ -190,18 +295,21 @@ void *create_jobs_task(void *pvParameters)
 
     if (job_timer == NULL) {
         ESP_LOGE(TAG, "Failed to create timer");
-        return NULL;
+        return;
     }
 
     // Start the timer
     if (xTimerStart(job_timer, 0) != pdPASS) {
         ESP_LOGE(TAG, "Failed to start timer");
-        return NULL;
+        return;
     }
 
     uint32_t last_ntime[2]{0};
     uint64_t last_submit_time = 0;
     uint32_t extranonce_2 = 0;
+
+    // CAN: per-slave rolling counters (upper 7 bits = slave_id, lower 25 = counter)
+    uint32_t slave_counters[CAN_SLAVE_MAX] = {0};
 
     int lastJobInterval = board->getAsicJobIntervalMs();
 
@@ -237,41 +345,18 @@ void *create_jobs_task(void *pvParameters)
             PThreadGuard g(current_stratum_job_mutex);
 
             // set current pool data
-            MiningInfo *mi = &miningInfo[active_pool];
+            MiningInfoBase *mi = miningInfo[active_pool];
 
-            if (!mi->current_job->ntime || !asics) {
+            if (!mi->isValid() || !asics) {
                 continue;
             }
 
-            if (last_ntime[active_pool] != mi->current_job->ntime) {
-                last_ntime[active_pool] = mi->current_job->ntime;
-                ESP_LOGI(TAG, "(%s) New Work Received %s", active_pool_str, mi->current_job->job_id);
+            if (mi->isNewWork(last_ntime[active_pool])) {
+                ESP_LOGI(TAG, "(%s) New Work Received %s", active_pool_str, mi->getJobId());
             }
 
-            // generate extranonce2 hex string
-            char extranonce_2_str[mi->extranonce_2_len * 2 + 1]; // +1 zero termination
-            snprintf(extranonce_2_str, sizeof(extranonce_2_str), "%0*lx", (int) mi->extranonce_2_len * 2, extranonce_2);
-
-            // generate coinbase tx
-            int coinbase_tx_len = strlen(mi->current_job->coinbase_1) + strlen(mi->extranonce_str) + strlen(extranonce_2_str) +
-                                  strlen(mi->current_job->coinbase_2);
-            char coinbase_tx[coinbase_tx_len + 1]; // +1 zero termination
-            snprintf(coinbase_tx, sizeof(coinbase_tx), "%s%s%s%s", mi->current_job->coinbase_1, mi->extranonce_str,
-                     extranonce_2_str, mi->current_job->coinbase_2);
-
-            // calculate merkle root
-            char merkle_root[65];
-            calculate_merkle_root_hash(coinbase_tx, mi->current_job->_merkle_branches, mi->current_job->n_merkle_branches,
-                                       merkle_root);
-
-            // we need malloc because we will save it in the job array
-            next_job = (bm_job *) malloc(sizeof(bm_job));
-            construct_bm_job(mi->current_job, merkle_root, mi->version_mask, next_job);
-            next_job->jobid = strdup(mi->current_job->job_id);
-            next_job->extranonce2 = strdup(extranonce_2_str);
-            next_job->pool_diff = mi->active_stratum_difficulty;
-            next_job->pool_id = active_pool;
-            next_job->asic_diff = STRATUM_MANAGER->selectAsicDiff(active_pool, mi->active_stratum_difficulty);
+            uint32_t asic_diff = STRATUM_MANAGER->selectAsicDiff(active_pool, mi->getActiveDifficulty());
+            next_job = mi->buildBmJob(extranonce_2, active_pool, asic_diff);
         } // mutex
 
         // set asic difficulty
@@ -291,7 +376,29 @@ void *create_jobs_task(void *pvParameters)
         asicJobs.storeJob(next_job, asic_job_id);
 
         extranonce_2++;
+
+        // --- CAN: send raw job to each slave ---
+        for (uint8_t slave = 0; slave < CAN_SLAVE_MAX; slave++) {
+            if (!can_master_is_slave_active(slave)) continue;
+            uint32_t e2 = can_make_extranonce2(slave, slave_counters[slave]++);
+
+            bm_job *slave_job = nullptr;
+            {
+                PThreadGuard g(current_stratum_job_mutex);
+                MiningInfoBase *mi = miningInfo[active_pool];
+                if (mi->isValid()) {
+                    uint32_t asic_diff = STRATUM_MANAGER->selectAsicDiff(active_pool, mi->getActiveDifficulty());
+                    slave_job = mi->buildBmJob(e2, active_pool, asic_diff);
+                }
+            }
+
+            if (slave_job) {
+                can_send_raw_job(slave, (uint8_t) asic_job_id, slave_job);
+                slaveAsicJobs[slave].storeJob(slave_job, asic_job_id);
+                // slaveAsicJobs owns slave_job now — do not free here
+            }
+        }
+
     }
 
-    return NULL;
 }

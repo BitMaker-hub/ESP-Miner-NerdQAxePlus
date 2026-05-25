@@ -24,6 +24,7 @@ import { Component, Input } from '@angular/core';
             [attr.r]="radius"
             [attr.stroke-dasharray]="circumference"
             [attr.stroke-dashoffset]="offset"
+            [attr.stroke]="strokeColor"
             transform="rotate(135, 50, 50)"
           ></circle>
         </svg>
@@ -38,6 +39,9 @@ import { Component, Input } from '@angular/core';
       </div>
     </div>
   `,
+  host: {
+    '[style.--gauge-stroke]': '(warn != null || crit != null) ? strokeColor : null'
+  },
   styles: [
     `
       .gauge-container {
@@ -65,9 +69,9 @@ import { Component, Input } from '@angular/core';
 
       .gauge-value {
         fill: none;
-        stroke: #2d8ad7;
+        stroke: var(--gauge-stroke, #2d8ad7);
         stroke-width: 14;
-        transition: stroke-dashoffset 0.5s ease-in-out;
+        transition: stroke-dashoffset 0.5s ease-in-out, stroke 0.2s ease-in-out;
       }
 
       .gauge-value-container {
@@ -106,6 +110,13 @@ export class GaugeComponent {
   @Input() label: string = ''; // Label below the gauge
   @Input() format: string = '1.2-2'; // Default format with 2 decimal places
 
+  @Input() warn?: number; // orange threshold
+  @Input() crit?: number; // red threshold
+
+  @Input() okColor: string = '#2d8ad7';   // default blue
+  @Input() warnColor: string = '#f59e0b'; // orange
+  @Input() critColor: string = '#ef4444'; // red
+
   radius: number = 40; // Radius of the circle
   center: number = 50; // Center of the circle
   viewBox: string = '0 0 100 100'; // SVG viewBox
@@ -115,7 +126,7 @@ export class GaugeComponent {
   }
 
   get offset(): number {
-    let progress = (this.value - this.min) / (this.max - this.min) * 0.75;
+    let progress = ((this.value ?? 0) - this.min) / (this.max - this.min) * 0.75;
 
     if (progress > 0.75) {
       progress = 0.75;
@@ -126,5 +137,23 @@ export class GaugeComponent {
   get offset2(): number {
     const progress = 0.75; // Full arc length for 270°
     return this.circumference * (1 - Math.min(Math.max(progress, 0), 1));
+  }
+
+  get level(): 'ok' | 'warn' | 'crit' {
+    if (typeof this.crit === 'number' && this.value >= this.crit) {
+      return 'crit';
+    }
+    if (typeof this.warn === 'number' && this.value >= this.warn) {
+      return 'warn';
+    }
+    return 'ok';
+  }
+
+  get strokeColor(): string {
+    switch (this.level) {
+      case 'crit': return this.critColor;
+      case 'warn': return this.warnColor;
+      default:     return this.okColor;
+    }
   }
 }

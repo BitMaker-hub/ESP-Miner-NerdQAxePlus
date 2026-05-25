@@ -1,6 +1,5 @@
 #include <algorithm>
 #include <math.h>
-#include <string.h>
 
 #include "esp_log.h"
 #include "esp_timer.h"
@@ -11,6 +10,7 @@
 #include "periodic.hpp"
 
 #include "boards/board.h"
+#include "fan_controller.h"
 #include "global_state.h"
 #include "influx_task.h"
 #include "nvs_config.h"
@@ -19,6 +19,8 @@
 #define POLL_RATE 2000
 
 static const char *TAG = "power_management";
+
+// #define MEASURE_LOOP_TIME
 
 PowerManagementTask::PowerManagementTask()
 {
@@ -60,10 +62,7 @@ void PowerManagementTask::shutdown()
 
 uint16_t PowerManagementTask::getFanRPM(int channel)
 {
-    if (!m_board || channel < 0 || channel >= m_board->getNumFans()) {
-        return 0;
-    }
-    return m_fanRPM[channel];
+    return m_fanController.getRPM(channel);
 }
 
 void PowerManagementTask::checkCoreVoltageChanged()
@@ -106,26 +105,6 @@ void PowerManagementTask::checkVrFrequencyChanged()
     }
 }
 
-void PowerManagementTask::checkPidSettingsChanged()
-{
-    static PidSettings oldPidSettings = {0, 0, 0, 0};
-
-    PidSettings *pidSettings = m_board->getPidSettings();
-
-    // we can use memcmp because we have a packed struct
-    if (memcmp(pidSettings, &oldPidSettings, sizeof(PidSettings)) != 0) {
-        ESP_LOGI(TAG, "PID settings change detected");
-
-        float pidP = (float) pidSettings->p / 100.0f;
-        float pidI = (float) pidSettings->i / 100.0f;
-        float pidD = (float) pidSettings->d / 100.0f;
-
-        m_pid->SetTunings(pidP, pidI, pidD);
-        m_pid->SetTarget((float) pidSettings->targetTemp);
-        ESP_LOGI(TAG, "temp: %.2f p:%.2f i:%.2f d:%.2f", m_pid->GetTarget(), m_pid->GetKp(), m_pid->GetKi(), m_pid->GetKd());
-        oldPidSettings = *pidSettings;
-    }
-}
 
 void PowerManagementTask::logChipTemps()
 {
@@ -203,9 +182,10 @@ void PowerManagementTask::readAndPublishPowerTelemetry()
     float iout = m_board->getIout();
 
     m_vrTemp = m_board->getVRTemp();
+    m_vrTempInt = m_board->getVRTempInt();
 
-    ESP_LOGI(TAG, "vin: %.2f, iin: %.2f, pin: %.2f, vout: %.2f, iout: %.2f, pout: %.2f, vr-temp: %.2f", vin, iin, pin, vout, iout,
-             pout, m_vrTemp);
+    ESP_LOGI(TAG, "vin: %.2f, iin: %.2f, pin: %.2f, vout: %.2f, iout: %.2f, pout: %.2f, vr-temp: %.2f, vr-temp-int: %.2f", vin, iin,
+             pin, vout, iout, pout, m_vrTemp, m_vrTempInt);
 
     influx_task_set_pwr(vin, iin, pin, vout, iout, pout);
 
@@ -245,6 +225,17 @@ void PowerManagementTask::applyAsicSettings()
     checkVrFrequencyChanged();
 }
 
+void PowerManagementTask::requestChipTemps()
+{
+    // temperature measurements don't work before ASICs
+    // are initialized
+    if (!m_board->isInitialized()) {
+        return;
+    }
+
+    m_board->requestChipTemps();
+}
+
 void PowerManagementTask::task()
 {
     m_board = SYSTEM_MODULE.getBoard();
@@ -254,68 +245,28 @@ void PowerManagementTask::task()
 
     m_board->setFanPolarity(invert);
 
-    // pointer to pid settings
-    PidSettings *pidSettings = m_board->getPidSettings();
-
-    float pid_input = 0.0;
-    float pid_output = 0.0;
-    float pid_target = (float) pidSettings->targetTemp;
-
-    float pidP = (float) pidSettings->p / 100.0f;
-    float pidI = (float) pidSettings->i / 100.0f;
-    float pidD = (float) pidSettings->d / 100.0f;
-
-    m_pid = new PID(&pid_input, &pid_output, &pid_target, pidP, pidI, pidD, P_ON_E, DIRECT);
-    m_pid->SetSampleTime(POLL_RATE);
-    m_pid->SetOutputLimits(15, 100);
-    m_pid->SetMode(AUTOMATIC);
-    m_pid->SetControllerDirection(REVERSE);
-    m_pid->Initialize();
+    m_fanController.init(m_board, POLL_RATE);
 
     vTaskDelay(pdMS_TO_TICKS(1000));
     startTimer();
 
-    // uint64_t last_time = esp_timer_get_time();
+    uint64_t last_time = esp_timer_get_time();
     while (1) {
         pthread_mutex_lock(&m_loop_mutex);
         pthread_cond_wait(&m_loop_cond, &m_loop_mutex); // Wait for the timer
         pthread_mutex_unlock(&m_loop_mutex);
 
-        // uint64_t start = esp_timer_get_time();
+        uint64_t start = esp_timer_get_time();
         lock();
-/*
-        // don't suspend power management task in shutdown
-        if (m_shutdown) {
-            unlock();
-            ESP_LOGW(TAG, "suspended");
-            vTaskSuspend(NULL);
-        }
-*/
-        uint16_t asic_overheat_temp = Config::getOverheatTemp();
-        uint16_t temp_control_mode = Config::getTempControlMode();
-
-        // overwrite previously allowed 0 value to disable
-        // over-temp shutdown
-        if (!asic_overheat_temp) {
-            asic_overheat_temp = 70;
-        }
 
         applyAsicSettings();
 
-        // check if pid settings changed
-        checkPidSettingsChanged();
-
         // request chip temps
-        m_board->requestChipTemps();
+        requestChipTemps();
 
         logChipTemps();
 
         readAndPublishPowerTelemetry();
-
-        for (int i = 0; i < m_board->getNumFans(); i++) {
-            m_board->getFanSpeedCh(i, &m_fanRPM[i]);
-        }
-        influx_set_fan(m_fanPerc, (float) m_fanRPM[0], m_fanPerc, (float) m_fanRPM[1]);
 
         // collect temperatures
         // get the max of all asic measuring temp sensors
@@ -347,54 +298,36 @@ void PowerManagementTask::task()
 
         influx_task_set_temperature(m_chipTempMax, m_vrTemp);
 
-        float vr_maxTemp = asic_overheat_temp;
-        if (m_board->getVrMaxTemp()) {
-            vr_maxTemp = m_board->getVrMaxTemp();
-        }
+        // Run fan controller (reads RPM, drives fans, updates overheat flags)
+        m_fanController.update(m_chipTempMax, m_vrTemp);
 
-        if (asic_overheat_temp && (m_chipTempMax > asic_overheat_temp || m_vrTemp > vr_maxTemp)) {
-            uint32_t status = ((uint32_t) m_chipTempMax << 24) | ((uint32_t) asic_overheat_temp << 16) |
-                              ((uint32_t) m_vrTemp << 8) | ((uint32_t) vr_maxTemp << 8);
+        // Shutdown if any fan channel reports overheat
+        if (m_fanController.isOverheated(0) || m_fanController.isOverheated(1)) {
+            uint32_t status = ((uint32_t) m_chipTempMax << 24) | ((uint32_t) m_fanController.getOverheatTemp(0) << 16) |
+                              ((uint32_t) m_vrTemp << 8) | ((uint32_t) m_fanController.getOverheatTemp(1));
 
-            // over temperature
-            SYSTEM_MODULE.setBoardError(Board::Error::TEMP_FAULT, status);
+            // over temperature — ASIC takes priority over VReg-only
+            Board::Error overheatErr = Board::Error::VREG_TEMP_FAULT;
+            if (m_fanController.isOverheated(0)) overheatErr = Board::Error::TEMP_FAULT;
+            SYSTEM_MODULE.setBoardError(overheatErr, status);
 
             // disables the buck
             m_board->setVoltage(0.0);
-            ESP_LOGE(TAG, "System overheated - Shutting down asic voltage");
+            ESP_LOGE(TAG, "System overheated (chip=%.1f°C/thresh=%d°C vr=%.2f°C/thresh=%d°C) - Shutting down asic voltage",
+                     m_chipTempMax, m_fanController.getOverheatTemp(0), m_vrTemp, m_fanController.getOverheatTemp(1));
         }
-
-        // we let the PID always calculate for "bumpless transfer"
-        // when switching modes
-        pid_input = std::max(m_chipTempMax, m_vrTemp);
-        m_pid->Compute();
-
-        switch (temp_control_mode) {
-        case 0:
-            // manual
-            m_fanPerc = Config::getFanSpeed();
-            m_board->setFanSpeed((float) m_fanPerc / 100.0f);
-            break;
-        case 2:
-            // pid
-            m_fanPerc = (uint16_t) roundf(pid_output);
-            m_board->setFanSpeed((float) m_fanPerc / 100.0f);
-            // ESP_LOGI(TAG, "PID: Temp: %.1f°C, SetPoint: %.1f°C, Output: %.1f%%", pid_input, pid_target, pid_output);
-            // ESP_LOGI(TAG, "p:%.2f i:%.2f d:%.2f", m_pid->GetKp(), m_pid->GetKi(), m_pid->GetKd());
-            break;
-        default:
-            ESP_LOGE(TAG, "invalid temp control mode: %d. Defaulting to manual mode 100%%.", temp_control_mode);
-            m_fanPerc = 100;
-            m_board->setFanSpeed((float) m_fanPerc / 100.0f);
-        }
+        influx_set_fan(m_fanController.getSpeedPerc(0), (float) m_fanController.getRPM(0), m_fanController.getSpeedPerc(1),
+                       (float) m_fanController.getRPM(1));
         unlock();
-        // uint64_t end = esp_timer_get_time();
-        // uint64_t duration = (end - start) / 1000llu;
-        // uint64_t interval = (start - last_time) / 1000llu;
-        // // normally doesn't happen
-        // if (duration > POLL_RATE) {
-        //     ESP_LOGE(TAG, "loop taking more then %dms (%llums, interval: %llu)", POLL_RATE, duration, interval);
-        // }
-        // last_time = start;
+#ifdef MEASURE_LOOP_TIME
+        // checks if loop takes too much time
+        uint64_t end = esp_timer_get_time();
+        uint64_t duration = (end - start) / 1000llu;
+        uint64_t interval = (start - last_time) / 1000llu;
+        if (duration > POLL_RATE) {
+            ESP_LOGE(TAG, "loop taking more then %dms (%llums, interval: %llu)", POLL_RATE, duration, interval);
+        }
+        last_time = start;
+#endif
     }
 }

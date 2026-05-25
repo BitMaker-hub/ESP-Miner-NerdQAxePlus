@@ -22,7 +22,7 @@ PID::PID(float* Input, float* Output, float* Setpoint,
 
 PID::PID(float* Input, float* Output, float* Setpoint,
          float Kp, float Ki, float Kd, int ControllerDirection)
-    : PID(Input, Output, Setpoint, Kp, Ki, Kd, P_ON_E, ControllerDirection)
+    : PID(Input, Output, Setpoint, Kp, Ki, Kd, PID_P_ON_E, ControllerDirection)
 {
 }
 
@@ -78,7 +78,7 @@ void PID::SetTunings(float Kp, float Ki, float Kd, int POn)
     if (Kp < 0 || Ki < 0 || Kd < 0) return;
 
     pOn = POn;
-    pOnE = (POn == P_ON_E);
+    pOnE = (POn == PID_P_ON_E);
 
     dispKp = Kp;
     dispKi = Ki;
@@ -89,7 +89,7 @@ void PID::SetTunings(float Kp, float Ki, float Kd, int POn)
     ki = Ki * SampleTimeInSec;
     kd = Kd / SampleTimeInSec;
 
-    if (controllerDirection == REVERSE)
+    if (controllerDirection == PID_REVERSE)
     {
         kp = -kp;
         ki = -ki;
@@ -139,7 +139,7 @@ void PID::SetOutputLimits(float Min, float Max)
 
 void PID::SetMode(int Mode)
 {
-    bool newAuto = (Mode == AUTOMATIC);
+    bool newAuto = (Mode == PID_AUTOMATIC);
     if (newAuto && !inAuto)
     {
         Initialize();
@@ -172,5 +172,5 @@ float PID::GetKi() { return dispKi; }
 float PID::GetTi() { return dispKp / dispKi; }
 float PID::GetKd() { return dispKd; }
 float PID::GetTd() { return dispKd / dispKp; }
-int PID::GetMode() { return inAuto ? AUTOMATIC : MANUAL; }
+int PID::GetMode() { return inAuto ? PID_AUTOMATIC : PID_MANUAL; }
 int PID::GetDirection() { return controllerDirection; }

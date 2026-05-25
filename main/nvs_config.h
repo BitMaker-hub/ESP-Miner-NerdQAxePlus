@@ -50,11 +50,26 @@
 #define NVS_CONFIG_PID_I "pid_i"
 #define NVS_CONFIG_PID_D "pid_d"
 
+// Fan channel 1 (independent second fan, e.g. for VR temp)
+#define NVS_CONFIG_FAN1_SPEED    "fan1speed"
+#define NVS_CONFIG_FAN1_MODE     "fan1mode"
+#define NVS_CONFIG_FAN1_PID_TEMP "fan1_pid_temp"
+#define NVS_CONFIG_FAN1_PID_P    "fan1_pid_p"
+#define NVS_CONFIG_FAN1_PID_I    "fan1_pid_i"
+#define NVS_CONFIG_FAN1_PID_D    "fan1_pid_d"
+#define NVS_CONFIG_FAN1_OVERHEAT "fan1_overheat"
+
 #define NVS_CONFIG_ALERT_DISCORD_WATCHDOG_ENABLE "alrt_disc_en"
 #define NVS_CONFIG_ALERT_DISCORD_URL    "alrt_disc_url"
 #define NVS_CONFIG_ALERT_DISCORD_BLOCK_FOUND_ENABLE "alrt_disc_bf_en"
+#define NVS_CONFIG_ALERT_DISCORD_BEST_DIFF "alrt_disc_bd_en"
+#define NVS_CONFIG_ALERT_DISCORD_COINBASE_VERIFY "alrt_disc_cb_en"
+
+#define NVS_CONFIG_SHOW_BLOCK_FOUND_ENABLE "block_found_en"
 
 #define NVS_CONFIG_SWARM "swarmconfig"
+
+#define NVS_CONFIG_CAN_ENABLED "can_enabled"
 
 #define NVS_CONFIG_VR_FREQUENCY "vr_frequency"
 
@@ -62,6 +77,14 @@
 #define NVS_TOTAL_FOUND_BLOCKS "totalblocks"
 #define NVS_CONFIG_BEST_DIFF "bestdiff"
 
+
+// Coinbase verification (per pool)
+#define NVS_CONFIG_COINBASE_VERIFY_MODE    "cb_verify_mode"
+#define NVS_CONFIG_COINBASE_MAX_FEE        "cb_max_fee"
+#define NVS_CONFIG_COINBASE_VERIFY_FORCE   "cb_vfy_force"
+#define NVS_CONFIG_FB_COINBASE_VERIFY_MODE "fb_cb_vfy_mode"
+#define NVS_CONFIG_FB_COINBASE_MAX_FEE     "fb_cb_max_fee"
+#define NVS_CONFIG_FB_COINBASE_VERIFY_FORCE "fb_cb_vfy_frc"
 
 // OTP
 #define NVS_CONFIG_OTP_SECRET "otp_secret"
@@ -73,6 +96,14 @@
 
 #define NVS_CONFIG_POOL_MODE_BALANCE "pool_balance"
 #define NVS_CONFIG_POOL_MODE "pool_mode"
+
+// Stratum V2
+#define NVS_CONFIG_STRATUM_PROTOCOL "sv2_proto"
+#define NVS_CONFIG_SV2_AUTHORITY_PUBKEY "sv2_auth_pk"
+#define NVS_CONFIG_SV2_CHANNEL_TYPE "sv2_chan_type"
+#define NVS_CONFIG_FB_STRATUM_PROTOCOL "fbsv2_proto"
+#define NVS_CONFIG_FB_SV2_AUTHORITY_PUBKEY "fbsv2_authpk"
+#define NVS_CONFIG_FB_SV2_CHANNEL_TYPE "fbsv2_chtype"
 
 #if defined(CONFIG_FAN_MODE_MANUAL)
 #define CONFIG_AUTO_FAN_SPEED_VALUE 0
@@ -95,6 +126,7 @@ namespace Config {
     void nvs_config_set_string(const char* key, const char* value);
     uint16_t nvs_config_get_u16(const char* key, uint16_t default_value);
     void nvs_config_set_u16(const char* key, uint16_t value);
+    bool nvs_config_has_u16(const char* key);
     uint64_t nvs_config_get_u64(const char* key, uint64_t default_value);
     void nvs_config_set_u64(const char* key, uint64_t value);
 
@@ -162,6 +194,68 @@ namespace Config {
     inline void setPidI(uint16_t value) { nvs_config_set_u16(NVS_CONFIG_PID_I, value); }
     inline void setPidD(uint16_t value) { nvs_config_set_u16(NVS_CONFIG_PID_D, value); }
 
+    // Indexed fan-channel getters (ch=0 → ch0 NVS keys, ch=1 → fan1 NVS keys)
+    // ch0 defaults: mode=CONFIG_AUTO_FAN_SPEED_VALUE, speed=CONFIG_FAN_SPEED, overheat=CONFIG_OVERHEAT_TEMP
+    // ch1 defaults: mode=3 (linked), speed=100%, overheat=80°C
+    inline uint16_t getFanMode(int ch) {
+        return ch == 0 ? nvs_config_get_u16(NVS_CONFIG_AUTO_FAN_SPEED, CONFIG_AUTO_FAN_SPEED_VALUE)
+                       : nvs_config_get_u16(NVS_CONFIG_FAN1_MODE, 3);
+    }
+    inline uint16_t getFanManualSpeed(int ch) {
+        return ch == 0 ? nvs_config_get_u16(NVS_CONFIG_FAN_SPEED, CONFIG_FAN_SPEED)
+                       : nvs_config_get_u16(NVS_CONFIG_FAN1_SPEED, 100);
+    }
+    inline uint16_t getFanOverheatTemp(int ch) {
+        return ch == 0 ? nvs_config_get_u16(NVS_CONFIG_OVERHEAT_TEMP, CONFIG_OVERHEAT_TEMP)
+                       : nvs_config_get_u16(NVS_CONFIG_FAN1_OVERHEAT, CONFIG_OVERHEAT_TEMP);
+    }
+    inline uint16_t getFanPidTargetTemp(int ch, uint16_t d) {
+        return ch == 0 ? nvs_config_get_u16(NVS_CONFIG_PID_TARGET_TEMP, d)
+                       : nvs_config_get_u16(NVS_CONFIG_FAN1_PID_TEMP, d);
+    }
+    inline uint16_t getFanPidP(int ch, uint16_t d) {
+        return ch == 0 ? nvs_config_get_u16(NVS_CONFIG_PID_P, d)
+                       : nvs_config_get_u16(NVS_CONFIG_FAN1_PID_P, d);
+    }
+    inline uint16_t getFanPidI(int ch, uint16_t d) {
+        return ch == 0 ? nvs_config_get_u16(NVS_CONFIG_PID_I, d)
+                       : nvs_config_get_u16(NVS_CONFIG_FAN1_PID_I, d);
+    }
+    inline uint16_t getFanPidD(int ch, uint16_t d) {
+        return ch == 0 ? nvs_config_get_u16(NVS_CONFIG_PID_D, d)
+                       : nvs_config_get_u16(NVS_CONFIG_FAN1_PID_D, d);
+    }
+
+    // Indexed fan-channel setters
+    inline void setFanMode(int ch, uint16_t v) {
+        if (ch == 0) nvs_config_set_u16(NVS_CONFIG_AUTO_FAN_SPEED, v);
+        else         nvs_config_set_u16(NVS_CONFIG_FAN1_MODE, v);
+    }
+    inline void setFanManualSpeed(int ch, uint16_t v) {
+        if (ch == 0) nvs_config_set_u16(NVS_CONFIG_FAN_SPEED, v);
+        else         nvs_config_set_u16(NVS_CONFIG_FAN1_SPEED, v);
+    }
+    inline void setFanOverheatTemp(int ch, uint16_t v) {
+        if (ch == 0) nvs_config_set_u16(NVS_CONFIG_OVERHEAT_TEMP, v);
+        else         nvs_config_set_u16(NVS_CONFIG_FAN1_OVERHEAT, v);
+    }
+    inline void setFanPidTargetTemp(int ch, uint16_t v) {
+        if (ch == 0) nvs_config_set_u16(NVS_CONFIG_PID_TARGET_TEMP, v);
+        else         nvs_config_set_u16(NVS_CONFIG_FAN1_PID_TEMP, v);
+    }
+    inline void setFanPidP(int ch, uint16_t v) {
+        if (ch == 0) nvs_config_set_u16(NVS_CONFIG_PID_P, v);
+        else         nvs_config_set_u16(NVS_CONFIG_FAN1_PID_P, v);
+    }
+    inline void setFanPidI(int ch, uint16_t v) {
+        if (ch == 0) nvs_config_set_u16(NVS_CONFIG_PID_I, v);
+        else         nvs_config_set_u16(NVS_CONFIG_FAN1_PID_I, v);
+    }
+    inline void setFanPidD(int ch, uint16_t v) {
+        if (ch == 0) nvs_config_set_u16(NVS_CONFIG_PID_D, v);
+        else         nvs_config_set_u16(NVS_CONFIG_FAN1_PID_D, v);
+    }
+
     // ---- uint64_t Getters ----
     inline uint64_t getBestDiff() { return nvs_config_get_u64(NVS_CONFIG_BEST_DIFF, 0); }
     inline uint32_t getStratumDifficulty() { return (uint32_t) nvs_config_get_u64(NVS_CONFIG_STRATUM_DIFFICULTY, CONFIG_STRATUM_DIFFICULTY); }
@@ -180,11 +274,29 @@ namespace Config {
     inline bool isInfluxEnabled() { return nvs_config_get_u16(NVS_CONFIG_INFLUX_ENABLE, CONFIG_INFLUX_ENABLE_VALUE) != 0; }
     inline bool isDiscordWatchdogAlertEnabled() { return nvs_config_get_u16(NVS_CONFIG_ALERT_DISCORD_WATCHDOG_ENABLE, CONFIG_ALERT_DISCORD_WATCHDOG_ENABLE_VALUE) != 0; }
     inline bool isDiscordBlockFoundAlertEnabled() { return nvs_config_get_u16(NVS_CONFIG_ALERT_DISCORD_BLOCK_FOUND_ENABLE, CONFIG_ALERT_DISCORD_BLOCK_FOUND_ENABLE_VALUE) != 0; }
+    inline bool isDiscordBestDiffAlertEnabled() { return nvs_config_get_u16(NVS_CONFIG_ALERT_DISCORD_BEST_DIFF, CONFIG_ALERT_DISCORD_BEST_DIFF_ENABLE_VALUE) != 0; }
+    inline bool isDiscordCoinbaseVerifyAlertEnabled() { return nvs_config_get_u16(NVS_CONFIG_ALERT_DISCORD_COINBASE_VERIFY, 0) != 0; }
     inline bool isStratumKeepaliveEnabled() { return nvs_config_get_u16(NVS_CONFIG_STRATUM_KEEPALIVE, CONFIG_STRATUM_KEEPALIVE_ENABLE_VALUE) != 0; }
     inline bool isStratumEnonceSubscribe() { return nvs_config_get_u16(NVS_CONFIG_STRATUM_ENONCE_SUB, CONFIG_STRATUM_ENONCE_SUBSCRIBE_VALUE) != 0; }
     inline bool isStratumFallbackEnonceSubscribe() { return nvs_config_get_u16(NVS_CONFIG_STRATUM_FALLBACK_ENONCE_SUB, CONFIG_STRATUM_FALLBACK_ENONCE_SUBSCRIBE_VALUE) != 0; }
     inline bool isStratumTLS() { return nvs_config_get_u16(NVS_CONFIG_STRATUM_TLS, CONFIG_STRATUM_TLS_VALUE) != 0; }
     inline bool isStratumFallbackTLS() { return nvs_config_get_u16(NVS_CONFIG_STRATUM_FALLBACK_TLS, CONFIG_STRATUM_FALLBACK_TLS_VALUE) != 0; }
+    inline bool isShowBlockFoundEnabled() { return nvs_config_get_u16(NVS_CONFIG_SHOW_BLOCK_FOUND_ENABLE, CONFIG_SHOW_BLOCK_FOUND_ENABLE_VALUE) != 0; }
+    inline bool isCanEnabled() { return nvs_config_get_u16(NVS_CONFIG_CAN_ENABLED, 0) != 0; }
+
+    // Stratum V2
+    inline uint16_t getStratumProtocol() { return nvs_config_get_u16(NVS_CONFIG_STRATUM_PROTOCOL, 0); }
+    inline void setStratumProtocol(uint16_t value) { nvs_config_set_u16(NVS_CONFIG_STRATUM_PROTOCOL, value); }
+    inline uint16_t getFallbackStratumProtocol() { return nvs_config_get_u16(NVS_CONFIG_FB_STRATUM_PROTOCOL, 0); }
+    inline void setFallbackStratumProtocol(uint16_t value) { nvs_config_set_u16(NVS_CONFIG_FB_STRATUM_PROTOCOL, value); }
+    inline char* getSV2AuthorityPubkey() { return nvs_config_get_string(NVS_CONFIG_SV2_AUTHORITY_PUBKEY, ""); }
+    inline void setSV2AuthorityPubkey(const char* value) { nvs_config_set_string(NVS_CONFIG_SV2_AUTHORITY_PUBKEY, value); }
+    inline char* getFallbackSV2AuthorityPubkey() { return nvs_config_get_string(NVS_CONFIG_FB_SV2_AUTHORITY_PUBKEY, ""); }
+    inline void setFallbackSV2AuthorityPubkey(const char* value) { nvs_config_set_string(NVS_CONFIG_FB_SV2_AUTHORITY_PUBKEY, value); }
+    inline uint16_t getSV2ChannelType() { return nvs_config_get_u16(NVS_CONFIG_SV2_CHANNEL_TYPE, 0); }
+    inline void setSV2ChannelType(uint16_t value) { nvs_config_set_u16(NVS_CONFIG_SV2_CHANNEL_TYPE, value); }
+    inline uint16_t getFallbackSV2ChannelType() { return nvs_config_get_u16(NVS_CONFIG_FB_SV2_CHANNEL_TYPE, 0); }
+    inline void setFallbackSV2ChannelType(uint16_t value) { nvs_config_set_u16(NVS_CONFIG_FB_SV2_CHANNEL_TYPE, value); }
 
     // ---- Boolean Setters ----
     inline void setFlipScreen(bool value) { nvs_config_set_u16(NVS_CONFIG_FLIP_SCREEN, value ? 1 : 0); }
@@ -195,11 +307,15 @@ namespace Config {
     inline void setInfluxEnabled(bool value) { nvs_config_set_u16(NVS_CONFIG_INFLUX_ENABLE, value ? 1 : 0); }
     inline void setDiscordWatchdogAlertEnabled(bool value) { nvs_config_set_u16(NVS_CONFIG_ALERT_DISCORD_WATCHDOG_ENABLE, value ? 1 : 0); }
     inline void setDiscordAlertBlockFoundEnabled(bool value) { nvs_config_set_u16(NVS_CONFIG_ALERT_DISCORD_BLOCK_FOUND_ENABLE, value ? 1 : 0); }
+    inline void setDiscordAlertBestDiffEnabled(bool value) { nvs_config_set_u16(NVS_CONFIG_ALERT_DISCORD_BEST_DIFF, value ? 1 : 0); }
+    inline void setDiscordCoinbaseVerifyAlertEnabled(bool value) { nvs_config_set_u16(NVS_CONFIG_ALERT_DISCORD_COINBASE_VERIFY, value ? 1 : 0); }
     inline void setStratumKeepaliveEnabled(bool value) { nvs_config_set_u16(NVS_CONFIG_STRATUM_KEEPALIVE, value ? 1 : 0); }
     inline void setStratumEnonceSubscribe(bool value) { nvs_config_set_u16(NVS_CONFIG_STRATUM_ENONCE_SUB, value ? 1 : 0); }
     inline void setStratumFallbackEnonceSubscribe(bool value) { nvs_config_set_u16(NVS_CONFIG_STRATUM_FALLBACK_ENONCE_SUB, value ? 1 : 0); }
     inline void setStratumTLS(bool value) { nvs_config_set_u16(NVS_CONFIG_STRATUM_TLS, value ? 1 : 0); }
     inline void setStratumFallbackTLS(bool value) { nvs_config_set_u16(NVS_CONFIG_STRATUM_FALLBACK_TLS, value ? 1 : 0); }
+    inline void setShowBlockFoundEnabled(bool value) { nvs_config_set_u16(NVS_CONFIG_SHOW_BLOCK_FOUND_ENABLE, value ? 1 : 0); }
+    inline void setCanEnabled(bool value) { nvs_config_set_u16(NVS_CONFIG_CAN_ENABLED, value ? 1 : 0); }
 
     // with board specific default values
     inline uint16_t getAsicFrequency(uint16_t d) { return nvs_config_get_u16(NVS_CONFIG_ASIC_FREQ, d); }
@@ -235,6 +351,33 @@ namespace Config {
 
     inline void setOTPEnabled(bool value) { nvs_config_set_u16(NVS_CONFIG_OTP_ENABLED, value ? 1 : 0); }
     inline bool isOTPEnabled() { return nvs_config_get_u16(NVS_CONFIG_OTP_ENABLED, 0) != 0; }
+
+    // 0 = disabled, 1 = Basic (address present), 2 = Extended (address present + fee <= maxFee)
+    inline void setCoinbaseVerifyMode(int pool, uint16_t v) {
+        pool == 0 ? nvs_config_set_u16(NVS_CONFIG_COINBASE_VERIFY_MODE, v)
+                  : nvs_config_set_u16(NVS_CONFIG_FB_COINBASE_VERIFY_MODE, v);
+    }
+    inline uint16_t getCoinbaseVerifyMode(int pool = 0) {
+        return pool == 0 ? nvs_config_get_u16(NVS_CONFIG_COINBASE_VERIFY_MODE, 0)
+                         : nvs_config_get_u16(NVS_CONFIG_FB_COINBASE_VERIFY_MODE, 0);
+    }
+    inline void setCoinbaseMaxFee(int pool, uint16_t v) {
+        pool == 0 ? nvs_config_set_u16(NVS_CONFIG_COINBASE_MAX_FEE, v)
+                  : nvs_config_set_u16(NVS_CONFIG_FB_COINBASE_MAX_FEE, v);
+    }
+    // stored as tenths of percent: 5 = 0.5%, 30 = 3.0%
+    inline uint16_t getCoinbaseMaxFee(int pool = 0) {
+        return pool == 0 ? nvs_config_get_u16(NVS_CONFIG_COINBASE_MAX_FEE, 30)
+                         : nvs_config_get_u16(NVS_CONFIG_FB_COINBASE_MAX_FEE, 30);
+    }
+    inline void setCoinbaseVerifyForce(int pool, bool v) {
+        pool == 0 ? nvs_config_set_u16(NVS_CONFIG_COINBASE_VERIFY_FORCE, v ? 1 : 0)
+                  : nvs_config_set_u16(NVS_CONFIG_FB_COINBASE_VERIFY_FORCE, v ? 1 : 0);
+    }
+    inline bool getCoinbaseVerifyForce(int pool = 0) {
+        return pool == 0 ? nvs_config_get_u16(NVS_CONFIG_COINBASE_VERIFY_FORCE, 0) != 0
+                         : nvs_config_get_u16(NVS_CONFIG_FB_COINBASE_VERIFY_FORCE, 0) != 0;
+    }
 
     void migrate_config();
 }

@@ -1,4 +1,4 @@
-import { HttpClient, HttpEvent } from '@angular/common/http';
+import { HttpClient, HttpEvent, HttpParams } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { delay, Observable, of } from 'rxjs';
 import { eASICModel } from '../models/enum/eASICModel';
@@ -12,77 +12,82 @@ import { IUpdateStatus } from '../models/IUpdateStatus';
 import { HttpHeaders } from '@angular/common/http';
 
 const defaultInfo: ISystemInfo = {
-  power: 11.670000076293945,
-  minPower: 5.0,
-  maxPower: 15.0,
-  voltage: 5208.75,
-  maxVoltage: 4.5,
-  minVoltage: 5.5,
-  current: 2237.5,
-  temp: 60,
-  vrTemp: 45,
-  hashRateTimestamp: 1724398272483,
-  hashRate: 475,
-  hashRate_10m: 475,
-  hashRate_1h: 475,
-  hashRate_1d: 475,
+  flipscreen: 0,
+  invertscreen: 0,
+  autoscreenoff: 0,
+  power: 0,
+  minPower: 0,
+  maxPower: 0,
+  voltage: 0,
+  maxVoltage: 0,
+  minVoltage: 0,
+  current: 0,
+  temp: 0,
+  vrTemp: 0,
+  vrTempInt: 0,
+  hashRateTimestamp: 0,
+  hashRate: 0,
+  hashRate_10m: 0,
+  hashRate_1h: 0,
+  hashRate_1d: 0,
   bestDiff: 0,
   bestSessionDiff: 0,
-  freeHeap: 8388608,
-  freeHeapInt: 102400,
-  coreVoltage: 1200,
-  defaultCoreVoltage: 1200,
-  coreVoltageActual: 1200,
-  hostname: "Bitaxe",
-  hostip: "192.168.0.123",
-  macAddr: "DE:AD:C0:DE:0B:7C",
-  wifiRSSI: -90,
-  ssid: "default",
-  wifiPass: "password",
-  wifiStatus: "SYSTEM.WIFI_CONNECTED",
-  sharesAccepted: 1,
+  freeHeap: 0,
+  freeHeapInt: 0,
+  coreVoltage: 0,
+  defaultCoreVoltage: 0,
+  coreVoltageActual: 0,
+  hostname: "",
+  hostip: "",
+  macAddr: "",
+  wifiRSSI: 0,
+  ssid: "",
+  wifiPass: "",
+  wifiStatus: "",
+  sharesAccepted: 0,
   sharesRejected: 0,
-  uptimeSeconds: 38,
-  asicCount: 1,
-  smallCoreCount: 672,
+  uptimeSeconds: 0,
+  asicCount: 0,
+  smallCoreCount: 0,
   ASICModel: eASICModel.BM1368,
-  deviceModel: "NerdQAxe+",
-  stratumURL: "public-pool.io",
-  stratumPort: 3333,
-  stratumUser: "bc1q99n3pu025yyu0jlywpmwzalyhm36tg5u37w20d.bitaxe-U1",
+  deviceModel: "",
+  stratumURL: "",
+  stratumPort: 0,
+  stratumUser: "",
   stratumEnonceSubscribe: 0,
   stratumTLS: 0,
   fallbackStratumURL: "",
-  fallbackStratumPort: 3333,
+  fallbackStratumPort: 0,
   fallbackStratumUser: "",
   fallbackStratumEnonceSubscribe: 0,
   fallbackStratumTLS: 0,
-  frequency: 485,
-  defaultFrequency: 485,
-  version: "2.0",
-  flipscreen: 0,
-  invertscreen: 0,
+  stratumProtocol: 0,
+  fallbackStratumProtocol: 0,
+  sv2AuthorityPubkey: "",
+  fallbackSv2AuthorityPubkey: "",
+  sv2ChannelType: 0,
+  fallbackSv2ChannelType: 0,
+  frequency: 0,
+  defaultFrequency: 0,
+  version: "",
   invertfanpolarity: 0,
-  autofanspeed: 1,
-  fanspeed: 100,
-  manualFanSpeed: 100,
+  autofanspeed: 0,
+  fanspeed: 0,
+  manualFanSpeed: 0,
   fanrpm: 0,
-  autoscreenoff: 0,
-  lastResetReason: "Unknown",
-  jobInterval: 1200,
-  stratumDifficulty: 1000,
-  lastpingrtt: 0.00,
-  recentpingloss: 0.00,
+  lastResetReason: "",
+  jobInterval: 0,
+  stratumDifficulty: 0,
+  lastpingrtt: 0,
+  recentpingloss: 0,
   poolDifficulty: 0,
   stratum_keep: 0,
-  vrFrequency: 25000,
-  defaultTheme: "cosmic",
+  vrFrequency: 0,
+  defaultTheme: "",
   shutdown: false,
-
   stratum: {
-    poolMode: 0, // prim/fb
+    poolMode: 0,
     activePoolMode: 0,
-    //poolBalance: 100,
     usingFallback: false,
     totalBestDiff: 0,
     pools: [{
@@ -94,23 +99,24 @@ const defaultInfo: ISystemInfo = {
       bestDiff: 0,
       pingRtt: 0,
       pingLoss: 0,
+      activeProtocol: 0,
+      encrypted: false,
     }],
   },
-
   otp: false,
-
-  pidTargetTemp: 55,
-  pidP: 2.0,
-  pidI: 0.1,
-  pidD: 5.0,
-
-  boardtemp1: 30,
-  boardtemp2: 40,
-  overheat_temp: 70,
+  pidTargetTemp: 0,
+  pidP: 0,
+  pidI: 0,
+  pidD: 0,
+  overheat_temp: 0,
   history: {
+    hashrate_1m: [],
     hashrate_10m: [],
     hashrate_1h: [],
     hashrate_1d: [],
+    vregTemp: [],
+    asicTemp: [],
+    hasMore: false,
     timestamps: [],
     timestampBase: 0
   }
@@ -142,8 +148,40 @@ export class SystemService {
     return defaultInfo;
   }
 
-  public getInfo(ts: number, uri: string = ''): Observable<ISystemInfo> {
-    return this.httpClient.get(`${uri}/api/system/info?ts=${ts}&cur=${Math.floor(Date.now())}`) as Observable<ISystemInfo>;
+  public getInfo(ts = 0, limit = 0, uri = ''): Observable<ISystemInfo> {
+    let params = new HttpParams();
+
+    if (ts > 0) {
+      params = params
+        .set('ts', ts)
+        .set('cur', Date.now());
+
+      if (limit > 0) {
+        params = params.set('limit', limit);
+      }
+    }
+    const endpoint = `${uri}/api/system/info`;
+    return this.httpClient.get<ISystemInfo>(endpoint, { params });
+  }
+
+  // Home dashboard: request an extended history window (span) without affecting other callers.
+  public getInfoWithSpan(ts = 0, limit = 0, spanMs = 0, uri = ''): Observable<ISystemInfo> {
+    let params = new HttpParams();
+
+    if (ts > 0) {
+      params = params
+        .set('ts', ts)
+        .set('cur', Date.now());
+
+      if (limit > 0) {
+        params = params.set('limit', limit);
+      }
+      if (spanMs > 0) {
+        params = params.set('history_span', spanMs);
+      }
+    }
+    const endpoint = `${uri}/api/system/info`;
+    return this.httpClient.get<ISystemInfo>(endpoint, { params });
   }
 
   public getAsicInfo(uri: string = ''): Observable<AsicInfo> {
@@ -172,6 +210,10 @@ export class SystemService {
       headers,
       responseType: 'text', // plain text body
     });
+  }
+
+  public resetStats(uri: string = '') {
+    return this.httpClient.post(`${uri}/api/system/reset-stats`, null, { responseType: 'text' });
   }
 
   public shutdown(uri: string = '', totp?: string) {
@@ -246,11 +288,11 @@ export class SystemService {
   }
 
   // GitHub One-Click OTA
-  public performGithubOTAUpdate(url: string, totp?: string) {
+  public performGithubOTAUpdate(url: string, keepConfig: boolean, totp?: string) {
     const headers: Record<string, string> = {};
     if (totp) headers['X-TOTP'] = totp;
 
-    return this.httpClient.post('/api/system/OTA/github', { url }, {
+    return this.httpClient.post('/api/system/OTA/github', { url, keep_config: keepConfig }, {
       responseType: 'text',
       headers,
     });
@@ -316,4 +358,3 @@ export class SystemService {
     return this.httpClient.get('/api/otp/status') as Observable<{ enabled: boolean }>;
   }
 }
-

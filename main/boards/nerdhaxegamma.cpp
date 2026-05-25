@@ -20,6 +20,8 @@ NerdHaxeGamma::NerdHaxeGamma() : NerdQaxePlus2() {
     m_minPin = 75.0;
     m_maxVin = 13.0;
     m_minVin = 11.0;
+    m_minCurrentA = 0.0f;
+    m_maxCurrentA = 15.0f;
 
     m_asicMaxDifficulty = 4096;
     m_asicMinDifficulty = 1024;

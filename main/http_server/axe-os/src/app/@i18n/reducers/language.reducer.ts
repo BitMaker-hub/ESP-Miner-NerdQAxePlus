@@ -8,13 +8,8 @@ export interface State {
   current: Language;
 }
 
-// Initialize language from localStorage first, fallback to browser language
 const getInitialLanguage = (): Language => {
-  const savedLang = localStorage.getItem('language');
-  if (savedLang) {
-    return savedLang as Language;
-  }
-  return (navigator.language.toLowerCase().startsWith('fr') ? 'fr' : 'en') as Language;
+  return (localStorage.getItem('language') || 'en') as Language;
 };
 
 export const initialState: State = {

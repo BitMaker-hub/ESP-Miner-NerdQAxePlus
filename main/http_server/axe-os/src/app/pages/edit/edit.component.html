@@ -91,6 +91,15 @@
                 <nb-tab [tabTitle]="poolTabHeader(0)">
                     <nb-card-body>
                         <div class="form-row">
+                            <label class="form-label">{{ 'SETTINGS.STRATUM_PROTOCOL' | translate }}:</label>
+                            <div class="form-control-wrapper">
+                                <nb-select formControlName="stratumProtocol">
+                                    <nb-option [value]="0">{{ 'SETTINGS.STRATUM_V1' | translate }}</nb-option>
+                                    <nb-option [value]="1">{{ 'SETTINGS.STRATUM_V2' | translate }}</nb-option>
+                                </nb-select>
+                            </div>
+                        </div>
+                        <div class="form-row">
                             <label for="stratumURL" class="form-label">{{ 'SETTINGS.STRATUM_HOST' | translate
                                 }}:</label>
                             <div class="form-control-wrapper">
@@ -126,13 +135,63 @@
                                 </button>
                             </div>
                         </div>
-                        <div class="form-row">
+                        <ng-container *ngIf="form.controls['stratumProtocol'].value === 1">
+                            <!-- Channel type selection hidden for now - set to false to re-enable -->
+                            <ng-container *ngIf="false">
+                                <div class="form-row">
+                                    <nb-checkbox [checked]="form.controls['sv2ChannelType'].value === 0"
+                                        (checkedChange)="form.controls['sv2ChannelType'].setValue(0)">
+                                        {{ 'SETTINGS.SV2_CHANNEL_EXTENDED' | translate }}
+                                    </nb-checkbox>
+                                </div>
+                                <div class="form-row">
+                                    <nb-checkbox [checked]="form.controls['sv2ChannelType'].value === 1"
+                                        (checkedChange)="form.controls['sv2ChannelType'].setValue(1)">
+                                        {{ 'SETTINGS.SV2_CHANNEL_STANDARD' | translate }}
+                                    </nb-checkbox>
+                                </div>
+                            </ng-container>
+                            <div class="form-row">
+                                <label for="sv2AuthorityPubkey" class="form-label">{{ 'SETTINGS.SV2_AUTHORITY_PUBKEY' | translate }}:</label>
+                                <div class="form-control-wrapper">
+                                    <input nbInput id="sv2AuthorityPubkey" type="text" formControlName="sv2AuthorityPubkey" /><br />
+                                    <small>{{ 'SETTINGS.SV2_AUTHORITY_PUBKEY_HINT' | translate }}</small>
+                                </div>
+                            </div>
+                        </ng-container>
+                        <div class="form-row" *ngIf="form.controls['stratumProtocol'].value === 0">
                             <nb-checkbox formControlName="stratumTLS">{{ 'MINING.STRATUM_TLS' | translate}}</nb-checkbox>
                         </div>
-                        <div class="form-row">
+                        <div class="form-row" *ngIf="form.controls['stratumProtocol'].value === 0">
                             <nb-checkbox formControlName="stratumEnonceSubscribe">{{ 'MINING.ENABLE_EXTRANONCE' |
                                 translate
                                 }}</nb-checkbox>
+                        </div>
+                        <div class="form-row" style="align-items: flex-start;">
+                            <nb-checkbox [checked]="form.controls['coinbaseVerifyMode'].value > 0"
+                                         (checkedChange)="toggleCoinbaseVerify($event, 'coinbaseVerifyMode', 'lastCoinbaseVerifyMode')"
+                                         style="margin-top: 6px;">
+                                {{ 'SECURITY.COINBASE_VERIFY_TITLE' | translate }}
+                            </nb-checkbox>
+                            <div *ngIf="form.controls['coinbaseVerifyMode'].value > 0"
+                                 style="flex: 1; min-width: 0; margin-left: 8px; display: flex; flex-direction: column; gap: 6px;">
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <nb-select formControlName="coinbaseVerifyMode" style="min-width: unset;">
+                                        <nb-option [value]="1">{{ 'SECURITY.COINBASE_VERIFY_BASIC' | translate }}</nb-option>
+                                        <nb-option [value]="2">{{ 'SECURITY.COINBASE_VERIFY_EXTENDED' | translate }}</nb-option>
+                                    </nb-select>
+                                    <div *ngIf="form.controls['coinbaseVerifyMode'].value === 2" style="display: flex; align-items: center; gap: 4px;">
+                                        <input nbInput formControlName="coinbaseMaxFee" type="number" min="0" max="100" step="0.1" style="width: 55px;" />
+                                        <span>%</span>
+                                    </div>
+                                    <span class="hint-tooltip" style="margin-left: 16px;">
+                                        <nb-checkbox formControlName="coinbaseVerifyForce">{{ 'SECURITY.COINBASE_VERIFY_FORCE' | translate }}</nb-checkbox>
+                                        <span class="hint-tooltip__text">{{ 'SECURITY.COINBASE_VERIFY_FORCE_TOOLTIP' | translate }}</span>
+                                    </span>
+                                </div>
+                                <small *ngIf="form.controls['coinbaseVerifyMode'].value === 1">{{ 'SECURITY.COINBASE_VERIFY_BASIC_HINT' | translate }}</small>
+                                <small *ngIf="form.controls['coinbaseVerifyMode'].value === 2">{{ 'SECURITY.COINBASE_VERIFY_EXTENDED_HINT' | translate }}</small>
+                            </div>
                         </div>
                     </nb-card-body>
                 </nb-tab>
@@ -140,6 +199,15 @@
                 <nb-tab
                     [tabTitle]="poolTabHeader(1)">
                     <nb-card-body>
+                        <div class="form-row">
+                            <label class="form-label">{{ 'SETTINGS.STRATUM_PROTOCOL' | translate }}:</label>
+                            <div class="form-control-wrapper">
+                                <nb-select formControlName="fallbackStratumProtocol">
+                                    <nb-option [value]="0">{{ 'SETTINGS.STRATUM_V1' | translate }}</nb-option>
+                                    <nb-option [value]="1">{{ 'SETTINGS.STRATUM_V2' | translate }}</nb-option>
+                                </nb-select>
+                            </div>
+                        </div>
                         <div class="form-row">
                             <label for="fallbackStratumURL" class="form-label">{{ 'SETTINGS.STRATUM_HOST' | translate
                                 }}:</label>
@@ -179,13 +247,63 @@
                                 </button>
                             </div>
                         </div>
-                        <div class="form-row">
+                        <ng-container *ngIf="form.controls['fallbackStratumProtocol'].value === 1">
+                            <!-- Channel type selection hidden for now - set to false to re-enable -->
+                            <ng-container *ngIf="false">
+                                <div class="form-row">
+                                    <nb-checkbox [checked]="form.controls['fallbackSv2ChannelType'].value === 0"
+                                        (checkedChange)="form.controls['fallbackSv2ChannelType'].setValue(0)">
+                                        {{ 'SETTINGS.SV2_CHANNEL_EXTENDED' | translate }}
+                                    </nb-checkbox>
+                                </div>
+                                <div class="form-row">
+                                    <nb-checkbox [checked]="form.controls['fallbackSv2ChannelType'].value === 1"
+                                        (checkedChange)="form.controls['fallbackSv2ChannelType'].setValue(1)">
+                                        {{ 'SETTINGS.SV2_CHANNEL_STANDARD' | translate }}
+                                    </nb-checkbox>
+                                </div>
+                            </ng-container>
+                            <div class="form-row">
+                                <label for="fallbackSv2AuthorityPubkey" class="form-label">{{ 'SETTINGS.SV2_AUTHORITY_PUBKEY' | translate }}:</label>
+                                <div class="form-control-wrapper">
+                                    <input nbInput id="fallbackSv2AuthorityPubkey" type="text" formControlName="fallbackSv2AuthorityPubkey" /><br />
+                                    <small>{{ 'SETTINGS.SV2_AUTHORITY_PUBKEY_HINT' | translate }}</small>
+                                </div>
+                            </div>
+                        </ng-container>
+                        <div class="form-row" *ngIf="form.controls['fallbackStratumProtocol'].value === 0">
                             <nb-checkbox formControlName="fallbackStratumTLS">{{ 'MINING.STRATUM_TLS' | translate}}</nb-checkbox>
                         </div>
-                        <div class="form-row">
+                        <div class="form-row" *ngIf="form.controls['fallbackStratumProtocol'].value === 0">
                             <nb-checkbox formControlName="fallbackStratumEnonceSubscribe">{{ 'MINING.ENABLE_EXTRANONCE'
                                 |
                                 translate }}</nb-checkbox>
+                        </div>
+                        <div class="form-row" style="align-items: flex-start;">
+                            <nb-checkbox [checked]="form.controls['fallbackCoinbaseVerifyMode'].value > 0"
+                                         (checkedChange)="toggleCoinbaseVerify($event, 'fallbackCoinbaseVerifyMode', 'lastFallbackCoinbaseVerifyMode')"
+                                         style="margin-top: 6px;">
+                                {{ 'SECURITY.COINBASE_VERIFY_TITLE' | translate }}
+                            </nb-checkbox>
+                            <div *ngIf="form.controls['fallbackCoinbaseVerifyMode'].value > 0"
+                                 style="flex: 1; min-width: 0; margin-left: 8px; display: flex; flex-direction: column; gap: 6px;">
+                                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                    <nb-select formControlName="fallbackCoinbaseVerifyMode" style="min-width: unset;">
+                                        <nb-option [value]="1">{{ 'SECURITY.COINBASE_VERIFY_BASIC' | translate }}</nb-option>
+                                        <nb-option [value]="2">{{ 'SECURITY.COINBASE_VERIFY_EXTENDED' | translate }}</nb-option>
+                                    </nb-select>
+                                    <div *ngIf="form.controls['fallbackCoinbaseVerifyMode'].value === 2" style="display: flex; align-items: center; gap: 4px;">
+                                        <input nbInput formControlName="fallbackCoinbaseMaxFee" type="number" min="0" max="100" step="0.1" style="width: 55px;" />
+                                        <span>%</span>
+                                    </div>
+                                    <span class="hint-tooltip" style="margin-left: 16px;">
+                                        <nb-checkbox formControlName="fallbackCoinbaseVerifyForce">{{ 'SECURITY.COINBASE_VERIFY_FORCE' | translate }}</nb-checkbox>
+                                        <span class="hint-tooltip__text">{{ 'SECURITY.COINBASE_VERIFY_FORCE_TOOLTIP' | translate }}</span>
+                                    </span>
+                                </div>
+                                <small *ngIf="form.controls['fallbackCoinbaseVerifyMode'].value === 1">{{ 'SECURITY.COINBASE_VERIFY_BASIC_HINT' | translate }}</small>
+                                <small *ngIf="form.controls['fallbackCoinbaseVerifyMode'].value === 2">{{ 'SECURITY.COINBASE_VERIFY_EXTENDED_HINT' | translate }}</small>
+                            </div>
                         </div>
                     </nb-card-body>
                 </nb-tab>
@@ -241,10 +359,6 @@
                         <label for="jobInterval" class="form-label">Job Interval:</label>
                         <div class="form-control-wrapper">
                             <input nbInput id="jobInterval" formControlName="jobInterval" type="number" /><br />
-                        </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-control-wrapper-no-label">
                             <small>Mining job switching time in milliseconds.</small>
                         </div>
                     </div>
@@ -252,13 +366,8 @@
                         <label for="vrFrequency" class="form-label">VR-Frequency:</label>
                         <div class="form-control-wrapper">
                             <input nbInput id="vrFrequency" formControlName="vrFrequency" type="number" /><br />
-                        </div>
-                    </div>
-                    <div class="form-row" *ngIf="defaultVrFrequency !== undefined">
-                        <div class="form-control-wrapper-no-label">
                             <small>
-                                Version Rolling
-                                Frequency.<!-- (Default <b>{{ defaultVrFrequency | number:'1.3-3' }} Hz</b>).-->
+                                Version Rolling Frequency.
                             </small>
                             <br />
                             <small>
@@ -283,88 +392,193 @@
         <nb-card>
             <nb-card-header>{{ 'FAN.TITLE' | translate }}</nb-card-header>
             <nb-card-body>
-                <div class="form-row">
-                    <label class="form-label">{{ 'FAN.CONTROLLER' | translate }}:</label>
-                    <div class="form-control-wrapper">
-                        <nb-select fullWidth formControlName="autofanspeed">
-                            <nb-option [value]="0">{{ 'FAN.MANUAL' | translate }}</nb-option>
-                            <nb-option *ngIf="form.controls['pidTargetTemp'].value != -1" [value]="2">{{
-                                'SETTINGS.AUTO_FAN' | translate }} (PID)</nb-option>
-                        </nb-select>
-                    </div>
-                </div>
+                <div>
+                    <div class="fan-column">
+                        <h6 class="fan-column__title">{{ 'FAN.PRIMARY_CONTROLLER' | translate }}</h6>
 
-                <!-- Manual fan speed slider -->
-                <div *ngIf="form.controls['autofanspeed'].value === 0">
-                    <div class="form-row">
-                        <label>{{ 'SETTINGS.FAN_SPEED' | translate }} {{ form.controls['manualFanSpeed'].value
-                            }}%</label>
-                        <div class="form-control-wrapper">
-                            <div class="progress-wrap">
-                                <input type="range" class="progress" formControlName="manualFanSpeed" min="0" max="100"
-                                    step="1" />
-                                <div class="progress-foreground"
-                                    [style.width.%]="form.controls['manualFanSpeed'].value">
+                        <div class="form-row fan-hint-row"
+                             *ngIf="fanCount > 1 && form.controls['fan1Mode'].value !== 3 && fanLabels[0]">
+                            <label class="form-label"></label>
+                            <div class="form-control-wrapper">
+                                <div class="fan-hint-box"
+                                     [innerHTML]="'FAN.FAN1_CONNECTOR_HINT' | translate: { connector: fanLabels[0] }">
                                 </div>
                             </div>
-                            <small *ngIf="form.controls['manualFanSpeed'].value < 40"
-                                style="color: red; margin-left:10px;">Danger: Could Cause
-                                Overheating</small>
-                            <small *ngIf="form.controls['manualFanSpeed'].value === 100"
-                                style="color: #F2A900; margin-left:10px;">S19
-                                Simulator</small>
                         </div>
-                    </div>
-                </div>
 
-                <!-- PID Fan Control Settings -->
-                <div *ngIf="form.controls['autofanspeed'].value === 2 && form.controls['pidTargetTemp'].value != -1">
-                    <div class="form-row">
-                        <label class="form-label">{{ 'SETTINGS.TARGET_TEMP' | translate }}:</label>
-                        <div class="form-control-wrapper">
-                            <input nbInput type="number" formControlName="pidTargetTemp" />
-                        </div>
-                    </div>
-
-                    <div *ngIf="supportLevel >= 1" class="form-row-separator" style="font-weight:bold;">PID Parameters:
-                    </div>
-
-                    <div *ngIf="supportLevel >= 1">
                         <div class="form-row">
-                            <label class="form-label">PID P:</label>
+                            <label class="form-label">{{ 'FAN.CONTROLLER' | translate }}:</label>
                             <div class="form-control-wrapper">
-                                <input nbInput type="number" formControlName="pidP" />
+                                <nb-select fullWidth formControlName="autofanspeed">
+                                    <nb-option [value]="0">{{ 'FAN.MANUAL' | translate }}</nb-option>
+                                    <nb-option *ngIf="form.controls['pidTargetTemp'].value != -1" [value]="2">{{
+                                        'SETTINGS.AUTO_FAN' | translate }} (PID)</nb-option>
+                                </nb-select>
                             </div>
                         </div>
-                        <div class="form-row">
-                            <label class="form-label">PID I:</label>
-                            <div class="form-control-wrapper">
-                                <input nbInput type="number" formControlName="pidI" />
-                            </div>
-                        </div>
-                        <div class="form-row">
-                            <label class="form-label">PID D:</label>
-                            <div class="form-control-wrapper">
-                                <input nbInput type="number" formControlName="pidD" />
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="form-row-separator">
-                    <label for="overheat_temp" class="form-label">{{ 'SETTINGS.SHUTDOWN_TEMP' | translate }}:</label>
-                    <div class="form-control-wrapper">
-                        <input nbInput id="overheat_temp" formControlName="overheat_temp" type="number" />
-                    </div>
-                </div>
-                <div class="form-row" *ngIf="supportLevel >= 2">
-                    <nb-checkbox formControlName="invertfanpolarity">{{ 'FAN.INVERT_POLARITY' | translate }}</nb-checkbox>
-                </div>
 
+                        <!-- Manual fan speed slider -->
+                        <div *ngIf="form.controls['autofanspeed'].value === 0">
+                            <div class="form-row">
+                                <label class="form-label">{{ 'SETTINGS.FAN_SPEED' | translate }} {{ form.controls['manualFanSpeed'].value }}%</label>
+                                <div class="form-control-wrapper">
+                                    <div class="progress-wrap">
+                                        <input type="range" class="progress" formControlName="manualFanSpeed" min="0" max="100" step="1" />
+                                        <div class="progress-foreground" [style.width.%]="form.controls['manualFanSpeed'].value"></div>
+                                        <small class="fan-slider-alert fan-slider-alert--danger"
+                                            *ngIf="form.controls['manualFanSpeed'].value < 40">
+                                            Danger: Could Cause Overheating
+                                        </small>
+                                        <small class="fan-slider-alert fan-slider-alert--warn"
+                                            *ngIf="form.controls['manualFanSpeed'].value === 100">
+                                            S19 Simulator
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- PID Fan Control Settings -->
+                        <div *ngIf="form.controls['autofanspeed'].value === 2 && form.controls['pidTargetTemp'].value != -1">
+                            <div class="form-row">
+                                <label class="form-label">{{ 'SETTINGS.TARGET_TEMP' | translate }}:</label>
+                                <div class="form-control-wrapper">
+                                    <input nbInput type="number" formControlName="pidTargetTemp" />
+                                </div>
+                            </div>
+                            <div *ngIf="supportLevel >= 1" class="form-row-separator" style="font-weight:bold;">PID Parameters:</div>
+                            <div *ngIf="supportLevel >= 1">
+                                <div class="form-row">
+                                    <label class="form-label">PID P:</label>
+                                    <div class="form-control-wrapper">
+                                        <input nbInput type="number" formControlName="pidP" />
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <label class="form-label">PID I:</label>
+                                    <div class="form-control-wrapper">
+                                        <input nbInput type="number" formControlName="pidI" />
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <label class="form-label">PID D:</label>
+                                    <div class="form-control-wrapper">
+                                        <input nbInput type="number" formControlName="pidD" />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <label for="overheat_temp" class="form-label">{{ 'SETTINGS.SHUTDOWN_TEMP' | translate }}:</label>
+                            <div class="form-control-wrapper">
+                                <input nbInput id="overheat_temp" formControlName="overheat_temp" type="number" />
+                            </div>
+                        </div>
+
+                        <div class="form-row" *ngIf="supportLevel >= 2">
+                            <nb-checkbox formControlName="invertfanpolarity">{{ 'FAN.INVERT_POLARITY' | translate }}</nb-checkbox>
+                        </div>
+                    </div>
+
+                    <hr *ngIf="fanCount > 1" style="border-color: var(--card-divider-color); margin: 20px 0; opacity:1.0;" />
+
+                    <div class="fan-column" *ngIf="fanCount > 1">
+                        <h6 class="fan-column__title">{{ 'FAN.SECONDARY_CONTROLLER' | translate }}</h6>
+
+                        <div class="form-row fan-hint-row" *ngIf="fanLabels[1] && form.controls['fan1Mode'].value !== 3">
+                            <label class="form-label"></label>
+                            <div class="form-control-wrapper">
+                                <div class="fan-hint-box"
+                                     [innerHTML]="'FAN.FAN2_CONNECTOR_HINT' | translate: { connector: fanLabels[1] }">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <label class="form-label">{{ 'FAN.CONTROLLER' | translate }}:</label>
+                            <div class="form-control-wrapper">
+                                <nb-select fullWidth formControlName="fan1Mode">
+                                    <nb-option [value]="3">{{ 'FAN.USE_FAN1_SETTINGS' | translate }}</nb-option>
+                                    <nb-option [value]="0">{{ 'FAN.MANUAL' | translate }}</nb-option>
+                                    <nb-option [value]="2">{{ 'SETTINGS.AUTO_FAN' | translate }} (PID)</nb-option>
+                                </nb-select>
+                            </div>
+                        </div>
+
+                        <div class="form-row" *ngIf="form.controls['fan1Mode'].value === 3">
+                            <label class="form-label"></label>
+                            <div class="form-control-wrapper">
+                                <small class="fan-sync-hint"
+                                       [innerHTML]="'FAN.FAN_LINKED_HINT' | translate">
+                                </small>
+                            </div>
+                        </div>
+
+
+                        <div *ngIf="form.controls['fan1Mode'].value === 0">
+                            <div class="form-row">
+                                <label class="form-label">{{ 'SETTINGS.FAN_SPEED' | translate }} {{ form.controls['fan1ManualSpeed'].value }}%</label>
+                                <div class="form-control-wrapper">
+                                    <div class="progress-wrap">
+                                        <input type="range" class="progress" formControlName="fan1ManualSpeed" min="0" max="100" step="1" />
+                                        <div class="progress-foreground" [style.width.%]="form.controls['fan1ManualSpeed'].value"></div>
+                                        <small class="fan-slider-alert fan-slider-alert--danger"
+                                            *ngIf="form.controls['fan1ManualSpeed'].value < 40">
+                                            Danger: Could Cause Overheating
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div *ngIf="form.controls['fan1Mode'].value === 2">
+                            <div class="form-row">
+                                <label class="form-label">{{ 'SETTINGS.TARGET_TEMP' | translate }}:</label>
+                                <div class="form-control-wrapper">
+                                    <input nbInput type="number" formControlName="fan1PidTargetTemp" />
+                                </div>
+                            </div>
+                            <div *ngIf="supportLevel >= 1" class="form-row-separator" style="font-weight:bold;">PID Parameters:</div>
+                            <div *ngIf="supportLevel >= 1">
+                                <div class="form-row">
+                                    <label class="form-label">PID P:</label>
+                                    <div class="form-control-wrapper">
+                                        <input nbInput type="number" formControlName="fan1PidP" />
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <label class="form-label">PID I:</label>
+                                    <div class="form-control-wrapper">
+                                        <input nbInput type="number" formControlName="fan1PidI" />
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <label class="form-label">PID D:</label>
+                                    <div class="form-control-wrapper">
+                                        <input nbInput type="number" formControlName="fan1PidD" />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <label for="fan1OverheatTemp" class="form-label">{{ 'SETTINGS.SHUTDOWN_TEMP' | translate }}:</label>
+                            <div class="form-control-wrapper">
+                                <input nbInput id="fan1OverheatTemp" formControlName="fan1OverheatTemp" type="number" />
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
             </nb-card-body>
         </nb-card>
         <nb-card>
             <nb-card-header>{{ 'MISC.TITLE' | translate }}</nb-card-header>
             <nb-card-body>
+                <div class="form-row" *ngIf="hasCanExtension">
+                    <nb-checkbox formControlName="canMaster">CAN Master Mode</nb-checkbox>
+                </div>
                 <div class="form-row">
                     <nb-checkbox formControlName="flipscreen">{{ 'MISC.FLIP_SCREEN' | translate }}</nb-checkbox>
                 </div>
@@ -391,7 +605,7 @@
                     </button>
                 </div>
             </div>
-            <div><button nbButton size="small" (click)="restart()" nbTooltip="'asdf'" status="danger">{{
+            <div><button nbButton size="small" (click)="restart()" status="danger">{{
                     'SYSTEM.RESTART' | translate }}</button>
             </div>
 

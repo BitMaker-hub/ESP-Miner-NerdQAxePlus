@@ -1,4 +1,7 @@
 export interface IAlertSettings {
-  alertDiscordEnable: number;
   alertDiscordWebhook: string;
+  alertDiscordWatchdogEnable: boolean;
+  alertDiscordBlockFoundEnable: boolean;
+  alertDiscordBestDiffEnable: boolean;
+  showBlockFoundScreenEnable: boolean;
 }

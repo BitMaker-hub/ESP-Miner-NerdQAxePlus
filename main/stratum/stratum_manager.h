@@ -4,9 +4,10 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/timers.h"
 #include "lwip/inet.h"
-
+#include "esp_log.h"
 #include "ArduinoJson.h"
 
+#include "coinbase_decoder.h"
 #include "stratum_task.h"
 #include "../tasks/ping_task.h"
 
@@ -15,8 +16,12 @@
 /**
  * @brief StratumManager handles pool selection, connection management, and failover.
  */
+class StratumTaskV2;
+
 class StratumManager {
-    friend StratumTask;
+    friend StratumTaskBase;
+    friend StratumTaskV1;
+    friend StratumTaskV2;
     friend PingTask;
   public:
     enum Selected
@@ -40,7 +45,7 @@ class StratumManager {
     PoolMode m_poolmode;                                 // default FAILOVER
     uint64_t m_lastSubmitResponseTimestamp = 0;              ///< Timestamp of last submitted share response
 
-    StratumTask *m_stratumTasks[2]{};                      ///< Primary and secondary Stratum tasks
+    StratumTaskBase *m_stratumTasks[2]{};                    ///< Primary and secondary Stratum tasks
     PingTask *m_pingTasks[2]{};
     StratumConfig *m_stratumConfig[2]{};
 
@@ -53,6 +58,23 @@ class StratumManager {
     char m_bestSessionDiffString[DIFF_STRING_SIZE]{}; // String representation of the best session difficulty
 
     bool m_initialized = false;
+
+    // Coinbase decoder: extranonce state per pool + decoded result + verification
+    char *m_extranonce1[2]{};
+    int m_extranonce2_len[2]{};
+    coinbase_result_t m_coinbaseResult[2]{};
+    bool m_verificationOk[2]{};
+    uint32_t m_verificationFailCount[2]{};
+    uint32_t m_verificationCheckCount[2]{};
+    // "" = not blocked, "address_not_found", "fee_exceeded"
+    const char *m_verifyBlockedReason[2]{nullptr, nullptr};
+
+    void processCoinbase(int pool, const mining_notify *notify);
+    void processCoinbase(int pool, const char *coinbase_1_hex, const char *coinbase_2_hex,
+                         uint32_t version, uint32_t nbits,
+                         const char *extranonce1_hex, int extranonce2_len);
+    void storeExtranonce(int pool, const char *extranonce, int extranonce2_len);
+    void runVerification(int pool);
 
     PoolMode getPoolMode() const
     {
@@ -68,6 +90,9 @@ class StratumManager {
 
     // Handles incoming Stratum responses
     void dispatch(int pool, JsonDocument &doc);
+
+    // Factory method for creating protocol-specific tasks
+    virtual StratumTaskBase* createTask(int index);
 
     // Core Stratum management task
     void task();
@@ -87,21 +112,30 @@ class StratumManager {
     virtual void acceptedShare(int pool) = 0;
     virtual void rejectedShare(int pool) = 0;
     virtual void setPoolDifficulty(int pool, uint32_t diff) = 0;
+    virtual void setNetworkDifficulty(int pool, uint32_t nbits) {}
 
     virtual int getPoolMode() = 0;
 
   public:
+    virtual void resetSessionStats() {
+        PThreadGuard lock(m_mutex);
+        m_foundBlocks = 0;
+    }
     StratumManager(PoolMode mode);
     static void taskWrapper(void *pvParameters); ///< Wrapper function for task execution
 
     // Submit shares to the active Stratum pool
+    // version_rolled = full rolled version (base | rolled bits)
+    // version_base   = original block template version
     void submitShare(int pool, const char *jobid, const char *extranonce_2, const uint32_t ntime, const uint32_t nonce,
-                     const uint32_t version);
+                     const uint32_t version_rolled, const uint32_t version_base);
 
     void checkForFoundBlock(int pool, double diff, uint32_t nbits);
 
     bool isAnyConnected();
     int getNumConnectedPools();
+
+    void reconnectAll();
 
     virtual bool isDualPool() const { return false; }
     virtual bool isFallback() const { return false; }
@@ -158,6 +192,51 @@ class StratumManager {
     virtual int getPoolErrors() = 0;
 
     virtual uint32_t getPoolDifficulty() = 0;
+    virtual double getNetworkDifficulty() { return 0; }
+
+    coinbase_result_t getCoinbaseResult(int pool) {
+        PThreadGuard lock(m_mutex);
+        return m_coinbaseResult[pool & 1];
+    }
+
+    void setCoinbaseResult(int pool, const coinbase_result_t &result) {
+        PThreadGuard lock(m_mutex);
+        m_coinbaseResult[pool & 1] = result;
+        runVerification(pool & 1);
+    }
+
+    bool getVerificationOk(int pool) {
+        PThreadGuard lock(m_mutex);
+        return m_verificationOk[pool & 1];
+    }
+
+    uint32_t getVerificationFailCount(int pool) {
+        PThreadGuard lock(m_mutex);
+        return m_verificationFailCount[pool & 1];
+    }
+
+    uint32_t getVerificationCheckCount(int pool) {
+        PThreadGuard lock(m_mutex);
+        return m_verificationCheckCount[pool & 1];
+    }
+
+    void rerunVerification(int pool) {
+        PThreadGuard lock(m_mutex);
+        runVerification(pool & 1);
+    }
+
+    void resetVerificationStats(int pool) {
+        PThreadGuard lock(m_mutex);
+        m_verificationCheckCount[pool & 1] = 0;
+        m_verificationFailCount[pool & 1] = 0;
+    }
+
+    bool isVerifyBlocked(int pool) const { return m_verifyBlockedReason[pool & 1] != nullptr; }
+    const char *getVerifyBlockedReason(int pool) const { return m_verifyBlockedReason[pool & 1]; }
+
+    void clearVerifyBlocked(int pool) {
+        m_verifyBlockedReason[pool & 1] = nullptr;
+    }
 
     virtual int getCompatPingPoolIndex() = 0;
 

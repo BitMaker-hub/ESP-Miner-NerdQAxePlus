@@ -11,24 +11,62 @@
     width: 200px;
 }
 
-#logs {
-    height: 100svh;
-    font-family: monospace;
-    border: 1px solid var(--border-basic-color-3);
-    overflow-y: scroll;
-    overflow-x: hidden;
-    background-color: var(--background-basic-color-3);
-    >div {
-        max-width: 100%;
-        line-break: anywhere;
-        font-family: 'Courier New', Courier, monospace;
-    }
+.logs-viewport {
+  height: 70vh;
+  width: 100%;
+  display: block;
+  overflow: auto;
+  contain: strict;
+  will-change: scroll-position;
+  background-color: #0D1117;
+
+  font-family: ui-monospace, monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New";
+  white-space: pre; /* stable wrapping for terminal-like logs */
 }
 
+/* Virtual scroll internal wrapper stability */
+.logs-viewport .cdk-virtual-scroll-content-wrapper {
+  contain: content;
+}
+
+/* Each log line must have stable, exact height = logItemSize */
 .log-entry {
-    font-family: monospace;
-    white-space: pre-wrap;
-    word-wrap: break-word;
+  font-family: ui-monospace, monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New";
+  white-space: pre;       /* do not wrap -> stable height */
+  line-height: 18px;      /* must match logItemSize */
+  padding: 0 0 0 10px;
+  margin: 0;
+  background-color: #0D1117;
+
+  /* optional: allow horizontal scroll for long lines */
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.download-icon {
+  margin-right: 8px;
+  vertical-align: middle;
+  font-size: 1.15rem;
+  line-height: 1;
+}
+
+/* Toxic green download button (match terminal green) */
+:host ::ng-deep button.download-toxic {
+  background-color: #00bb00 !important;
+  border-color: #00bb00 !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+}
+
+:host ::ng-deep button.download-toxic:hover {
+  background-color: #00d000 !important;
+  border-color: #00d000 !important;
+}
+
+:host ::ng-deep button.download-toxic:disabled {
+  background-color: rgba(0, 187, 0, 0.35) !important;
+  border-color: rgba(0, 187, 0, 0.35) !important;
+  color: rgba(255, 255, 255, 0.75) !important;
 }
 
 :host ::ng-deep .ansi-red { color: #ff0000 !important; }
@@ -215,4 +253,110 @@
   height: 16px;
   display: block;
   pointer-events: none; /* click handled by the cell */
+}
+
+.logs-header {
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap; /* desktop */
+  gap: 15px;
+}
+
+.logs-header-left {
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 15px;
+}
+
+.logs-header-title {
+  white-space: nowrap;
+}
+
+.logs-header-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+}
+
+.logs-filter-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+}
+
+.logs-filter-label {
+  white-space: nowrap;
+  margin-right: 12px;
+}
+
+.logs-filter-input {
+  flex: 0 1 560px;
+  min-width: 260px;
+  margin-right: 10px; /* MUST stay 10px to Clear Filter */
+}
+
+.logs-filter-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: nowrap;
+}
+
+/* If the header needs to wrap, keep the right side starting from the left */
+@media (max-width: 1150px) {
+  .logs-header {
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+
+  .logs-header-right {
+    margin-left: 0;
+    flex: 1 1 100%;
+    width: 100%;
+  }
+
+  .logs-filter-row {
+    width: 100%;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    align-items: center; /* align buttons to input height */
+    gap: 11px 0; /* vertical spacing only when wrapping */
+  }
+
+  .logs-filter-input {
+    /* allow the input to shrink so buttons don't get pushed down prematurely */
+    flex: 1 1 310px;
+    min-width: 120px;
+  }
+}
+
+/* <=780px: ONLY the download button drops below the input, aligned with the input start */
+@media (max-width: 780px) {
+  .logs-filter-row {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    grid-template-areas:
+      "label input clear"
+      ". download download";
+    align-items: center;
+    column-gap: 10px; /* keep 10px spacing between input and Clear Filter */
+    row-gap: 10px;
+  }
+
+  .logs-filter-label { grid-area: label; margin-right: 12px; }
+  .logs-filter-input  { grid-area: input; width: 100%; min-width: 0; margin-right: 0; }
+
+  .logs-filter-actions {
+    display: contents; /* let the buttons participate in the grid */
+  }
+
+  .logs-filter-actions > :first-child {
+    grid-area: clear;
+  }
+
+  :host ::ng-deep .logs-filter-actions > button.download-toxic {
+    grid-area: download;
+    justify-self: start; /* align to the input start */
+  }
 }

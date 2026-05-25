@@ -15,7 +15,8 @@ public:
         VREG_TEMP_FAULT,
         PSU_FAULT,
         IOUT_OC_FAULT,
-        VOUT_FAULT
+        VOUT_FAULT,
+        COINBASE_VERIFY_FAULT
     };
 
     static const char* errorToStr(Error err) {
@@ -26,6 +27,7 @@ public:
             case Error::PSU_FAULT: return "PSU FAULT";
             case Error::IOUT_OC_FAULT: return "CURRENT PROTECTION";
             case Error::VOUT_FAULT: return "VOLTAGE PROTECTION";
+            case Error::COINBASE_VERIFY_FAULT: return "VERIFY FAILED";
             default: return "INVALID ERROR";
         }
     }
@@ -45,7 +47,12 @@ public:
     bool m_hasHashCounter;
     const char *m_defaultTheme = "cosmic";
 
-    PidSettings m_pidSettings;
+    // Index 0: ASIC/chip-temp PID (fan 0).  Index 1: VR-temp PID (fan 1).
+    // ch1 base defaults (overridden in subclass ctors where needed): 65°C, p=6, i=0.1, d=10.
+    PidSettings m_pidSettings[2] = {{}, {65, 600, 10, 1000}};
+
+    // Human-readable connector labels shown in the web UI
+    const char* m_fanLabels[2] = {"Fan 1", "Fan 2"};
 
     // asic settings
     int m_asicJobIntervalMs;
@@ -86,6 +93,8 @@ public:
     float m_minPin;
     float m_maxVin;
     float m_minVin;
+    float m_minCurrentA = 0.0f;
+    float m_maxCurrentA = 8.0f; // default for small devices
 
     int m_numFans;
 
@@ -264,6 +273,18 @@ public:
         return m_maxVin;
     }
 
+    // Returns the minimum input current (A) for UI gauge scaling
+    float getMinCurrentA()
+        const {
+        return m_minCurrentA;
+    }
+
+    // Returns the maximum input current (A) for UI gauge scaling
+    float getMaxCurrentA()
+        const {
+        return m_maxCurrentA;
+    }
+
     float getVrMaxTemp()
     {
         return m_vr_maxTemp;
@@ -284,8 +305,13 @@ public:
         return m_fanInvertPolarity;
     }
 
-    PidSettings *getPidSettings() {
-        return &m_pidSettings;
+    PidSettings *getPidSettings(int ch = 0) {
+        return &m_pidSettings[ch];
+    }
+
+    const char* getFanLabel(int ch) const {
+        if (ch < 0 || ch >= m_numFans) return "";
+        return m_fanLabels[ch];
     }
 
     const std::vector<uint32_t>& getFrequencyOptions() const {
@@ -304,12 +330,38 @@ public:
         return m_hasHashCounter;
     }
 
+    virtual bool hasEthernet() {
+        return false;
+    }
+
+    virtual bool hasCanExtension() {
+        return false;
+    }
+
+    virtual bool isCanSlave() {
+        return false;
+    }
+
+    // Returns the slave ID (1-based) to use for CAN telemetry/nonce frames.
+    // Override in boards that implement multi-slave DIP switch detection.
+    virtual uint8_t getCanSlaveId() {
+        return 1;
+    }
+
+    // CAN transceiver GPIO pins. Override in boards that have CAN hardware.
+    virtual int getCanTxPin() { return -1; }
+    virtual int getCanRxPin() { return -1; }
+
     const char* getDefaultTheme() {
         return m_defaultTheme;
     }
 
     bool isShutdown() {
         return m_shutdown;
+    }
+
+    virtual float getVRTempInt() {
+        return 0.0f;
     }
 
 };

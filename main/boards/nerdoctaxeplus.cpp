@@ -19,10 +19,15 @@ NerdOctaxePlus::NerdOctaxePlus() : NerdQaxePlus() {
     m_minPin = 70.0;
     m_maxVin = 13.0;
     m_minVin = 11.0;
+    m_minCurrentA = 0.0f;
+    m_maxCurrentA = 15.0f;
 
 #ifdef NERDOCTAXEPLUS
     m_theme = new ThemeNerdoctaxeplus();
 #endif
+
+    m_fanLabels[0] = "M2 (Use a Y-splitter cable for multiple ASIC fans.)";
+    m_fanLabels[1] = "M1";
 
     m_swarmColorName = "#11d51e"; // green
 }

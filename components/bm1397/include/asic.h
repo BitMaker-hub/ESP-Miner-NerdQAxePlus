@@ -2,6 +2,18 @@
 
 #include "mining.h"
 
+typedef struct __attribute__((__packed__))
+{
+    uint8_t job_id;
+    uint8_t num_midstates;
+    uint8_t starting_nonce[4];
+    uint8_t nbits[4];
+    uint8_t ntime[4];
+    uint8_t merkle_root[32];
+    uint8_t prev_block_hash[32];
+    uint8_t version[4];
+} BM1368_job;
+
 #define CRC5_MASK 0x1F
 
 // debug serial
@@ -34,6 +46,13 @@
 
 #define SLEEP_TIME 20
 #define FREQ_MULT 25.0
+
+static inline int next_power_of_two(int num) {
+    if (num <= 1) return 1;
+    int power = 1;
+    while (power < num) power <<= 1;
+    return power;
+}
 
 #define CLOCK_ORDER_CONTROL_0 0x80
 #define CLOCK_ORDER_CONTROL_1 0x84
@@ -79,6 +98,7 @@ protected:
     float m_current_frequency;
     float m_actual_current_frequency;
     uint32_t m_asicDifficulty;
+    uint8_t m_addressInterval = 2; ///< Chip address spacing (set during init)
 
     void send(uint8_t header, uint8_t *data, uint8_t data_len);
     void send2(uint8_t header, uint8_t b0, uint8_t b1);
@@ -110,6 +130,7 @@ public:
     Asic();
     virtual const char* getName() = 0;
     uint8_t sendWork(uint32_t job_id, bm_job *next_bm_job);
+    void sendRawJob(BM1368_job *job);
     bool processWork(task_result *result);
     void setJobDifficultyMask(int difficulty);
     bool setAsicFrequency(float frequency);
