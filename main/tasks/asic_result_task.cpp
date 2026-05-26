@@ -65,7 +65,12 @@ void ASIC_result_task(void *pvParameters)
                     // maybe the upper 32bit of a 64bit counter and 0x90 returns the lower 32bit
                     break;
                 }
+                case 0x8C:
                 case 0x90: {
+                    // 0x8C = REGISTER_TOTAL_COUNT (chip-wide total, all domains combined)
+                    // 0x90 = legacy / per-domain counter (kept for backward compatibility)
+                    // Both are forwarded to the hashrate monitor — actual register read
+                    // is configured in REG_NONCE_TOTAL_CNT (hashrate_monitor_task.cpp).
                     HASHRATE_MONITOR.onRegisterReply(asic_result.asic_nr, asic_result.data);
                     break;
                 }

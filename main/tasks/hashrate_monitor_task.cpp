@@ -6,7 +6,12 @@
 #include "utils.h"
 
 static const char *HR_TAG = "hashrate_monitor";
-static constexpr uint8_t REG_NONCE_TOTAL_CNT = 0x90;
+// [FIX] Changed from 0x90 to 0x8C to read the chip-wide total nonce counter.
+// 0x90 returns only one internal domain's counter (the chip has multiple domains:
+// BM1370 has 4 domains, BM1373 has 8 domains). Reading 0x8C gives the TRUE total
+// across all internal domains. Confirmed by bitaxe ESP-Miner documentation:
+// REGISTER_TOTAL_COUNT = 0x8C.
+static constexpr uint8_t REG_NONCE_TOTAL_CNT = 0x8C;
 
 HashrateMonitor::HashrateMonitor()
 {}
