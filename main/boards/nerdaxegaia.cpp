@@ -27,8 +27,8 @@ NerdaxeGaia::NerdaxeGaia() : NerdAxe() {
     m_asicCount = 1;
 
     m_asicJobIntervalMs = 1500;
-    m_asicFrequencies = {500, 515, 525, 550, 575};
-    m_asicVoltages = {1120, 1130, 1140, 1150, 1160, 1170, 1180, 1190, 1200};
+    m_asicFrequencies = {300, 350, 400, 425, 450, 475, 500};
+    m_asicVoltages = {900, 950, 1000, 1050, 1100, 1150, 1200};
     m_defaultAsicFrequency = m_asicFrequency = 400;
     m_defaultAsicVoltageMillis = m_asicVoltageMillis = 1000;
     // m_absMaxAsicFrequency = 750;
@@ -90,6 +90,7 @@ bool NerdaxeGaia::initBoard()
         ESP_LOGE(TAG, "TPS546 init failed!");
         return ESP_FAIL;
     }
+    TPS546_set_frequency(400);
     setVoltage(0.0);
 
     gpio_pad_select_gpio(BM1373_RST_PIN);
@@ -213,3 +214,4 @@ float NerdaxeGaia::getIout() {
 float NerdaxeGaia::getPout() {
     return getPin();
 }
+

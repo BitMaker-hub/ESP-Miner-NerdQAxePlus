@@ -21,7 +21,7 @@
 
 static const char *TAG = "bm1373Module";
 
-static const uint8_t chip_id[6] = {0xaa, 0x55, 0x13, 0x73, 0x00, 0x00};
+static const uint8_t chip_id[6] = {0xaa, 0x55, 0x13, 0x72, 0x00, 0x00};
 
 static const uint64_t BM1373_CORE_COUNT = 128;
 static const uint64_t BM1373_SMALL_CORE_COUNT = 2040;

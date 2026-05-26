@@ -36,7 +36,7 @@
 #define TPS546_INIT_VOUT_MARGIN_LOW 0.90 /* %/100 below VOUT */
 #define TPS546_INIT_VOUT_UV_WARN_LIMIT 0.90  /* %/100 below VOUT_COMMAND */
 #define TPS546_INIT_VOUT_UV_FAULT_LIMIT 0.75 /* %/100 below VOUT_COMMAND */
-#define TPS546_INIT_VOUT_MIN 1 /* v */
+#define TPS546_INIT_VOUT_MIN 0.8 /* v */
 
   /* iout current */
 #define TPS546_INIT_IOUT_OC_WARN_LIMIT  25.00 /* A */
