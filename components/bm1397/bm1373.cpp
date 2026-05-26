@@ -23,8 +23,13 @@ static const char *TAG = "bm1373Module";
 
 static const uint8_t chip_id[6] = {0xaa, 0x55, 0x13, 0x72, 0x00, 0x00};
 
+// CORE_COUNT confirmed by nonce histogram: chip exposes 128 core_id positions
+// in the 7-bit space (same as BM1370).
+// SMALL_CORE_COUNT derived from spec: 2.5 TH/s @ 375 MHz / 4 chips (Antminer S23)
+//   2500 GH/s / 375 MHz × 1000 = 6667 small cores per chip
+// (Currently only ~54/128 cores produce nonces, but the chip silicon has all.)
 static const uint64_t BM1373_CORE_COUNT = 128;
-static const uint64_t BM1373_SMALL_CORE_COUNT = 2040;
+static const uint64_t BM1373_SMALL_CORE_COUNT = 6667;
 
 #define REG_NONCE_TOTAL_CNT 0x8c
 
@@ -82,7 +87,6 @@ uint8_t BM1373::init(uint64_t frequency, uint16_t asic_count, uint32_t difficult
     send6(CMD_WRITE_ALL, 0x00, 0x3C, 0x80, 0x00, 0x8B, 0x00);
 
     // Core Register Control
-    //send6(CMD_WRITE_ALL, 0x00, 0x3C, 0x80, 0x00, 0x80, 0x18);
     send6(CMD_WRITE_ALL, 0x00, 0x3C, 0x80, 0x00, 0x80, 0x0C);
 
     setJobDifficultyMask(difficulty);
