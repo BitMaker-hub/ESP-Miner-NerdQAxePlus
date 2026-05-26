@@ -207,7 +207,7 @@ export class EditComponent implements OnInit {
           ssid: [info.ssid, [Validators.required]],
           wifiPass: ['*****'],
 
-          coreVoltage: [info.coreVoltage, [Validators.min(1005), Validators.max(1400), Validators.required]],
+          coreVoltage: [info.coreVoltage, [Validators.min(800), Validators.max(1400), Validators.required]],
           frequency: [info.frequency, [Validators.required]],
           jobInterval: [info.jobInterval, [Validators.required]],
           stratumDifficulty: [info.stratumDifficulty, [Validators.required, Validators.min(1)]],
