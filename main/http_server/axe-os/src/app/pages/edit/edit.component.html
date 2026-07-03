@@ -18,8 +18,13 @@
                 </div>
                 <div class="form-row">
                     <label for="ssid" class="form-label">{{ 'SETTINGS.WIFI_SSID' | translate }}:</label>
-                    <div class="form-control-wrapper">
+                    <div class="input-with-icon">
                         <input nbInput id="ssid" type="text" formControlName="ssid" />
+                        <button *ngIf="apActive" nbButton ghost size="small" (click)="scanWifi(wifiScanDialog)" type="button"
+                                class="icon-button" [disabled]="wifiScanning"
+                                [nbTooltip]="'SETTINGS.WIFI_SCAN' | translate">
+                            <nb-icon [icon]="wifiScanning ? 'loader-outline' : 'search-outline'" pack="eva"></nb-icon>
+                        </button>
                     </div>
                 </div>
                 <div class="form-row">
@@ -82,7 +87,7 @@
                     </div>
                 </div>
                 <div class="form-row">
-                    <nb-checkbox formControlName="stratum_keep">{{ 'MISC.STRATUM_KEEPALIVE' | translate }}</nb-checkbox>
+                    <nb-checkbox formControlName="stratumKeep">{{ 'MISC.STRATUM_KEEPALIVE' | translate }}</nb-checkbox>
                 </div>
 
             </nb-card-body>
@@ -446,8 +451,8 @@
                                     <input nbInput type="number" formControlName="pidTargetTemp" />
                                 </div>
                             </div>
-                            <div *ngIf="supportLevel >= 1" class="form-row-separator" style="font-weight:bold;">PID Parameters:</div>
-                            <div *ngIf="supportLevel >= 1">
+                            <div *ngIf="supportLevel >= 2" class="form-row-separator" style="font-weight:bold;">PID Parameters:</div>
+                            <div *ngIf="supportLevel >= 2">
                                 <div class="form-row">
                                     <label class="form-label">PID P:</label>
                                     <div class="form-control-wrapper">
@@ -466,18 +471,23 @@
                                         <input nbInput type="number" formControlName="pidD" />
                                     </div>
                                 </div>
+                                <div class="form-row-separator"></div>
                             </div>
                         </div>
 
                         <div class="form-row">
-                            <label for="overheat_temp" class="form-label">{{ 'SETTINGS.SHUTDOWN_TEMP' | translate }}:</label>
+                            <label for="overheat_temp" class="form-label">{{ 'SETTINGS.SHUTDOWN_TEMP' | translate }} ({{ 'FAN.PRIMARY_CONTROLLER' | translate }}):</label>
                             <div class="form-control-wrapper">
                                 <input nbInput id="overheat_temp" formControlName="overheat_temp" type="number" />
                             </div>
                         </div>
 
+                        <div class="form-row" *ngIf="fanCount === 1">
+                            <nb-checkbox formControlName="pidUseMax">{{ 'FAN.PID_USE_MAX_TEMP' | translate }}</nb-checkbox>
+                        </div>
+
                         <div class="form-row" *ngIf="supportLevel >= 2">
-                            <nb-checkbox formControlName="invertfanpolarity">{{ 'FAN.INVERT_POLARITY' | translate }}</nb-checkbox>
+                            <nb-checkbox formControlName="invertFanPolarity">{{ 'FAN.INVERT_POLARITY' | translate }}</nb-checkbox>
                         </div>
                     </div>
 
@@ -539,8 +549,8 @@
                                     <input nbInput type="number" formControlName="fan1PidTargetTemp" />
                                 </div>
                             </div>
-                            <div *ngIf="supportLevel >= 1" class="form-row-separator" style="font-weight:bold;">PID Parameters:</div>
-                            <div *ngIf="supportLevel >= 1">
+                            <div *ngIf="supportLevel >= 2" class="form-row-separator" style="font-weight:bold;">PID Parameters:</div>
+                            <div *ngIf="supportLevel >= 2">
                                 <div class="form-row">
                                     <label class="form-label">PID P:</label>
                                     <div class="form-control-wrapper">
@@ -559,13 +569,14 @@
                                         <input nbInput type="number" formControlName="fan1PidD" />
                                     </div>
                                 </div>
+                                <div class="form-row-separator"></div>
                             </div>
                         </div>
 
                         <div class="form-row">
-                            <label for="fan1OverheatTemp" class="form-label">{{ 'SETTINGS.SHUTDOWN_TEMP' | translate }}:</label>
+                            <label for="fan1OverheatTemp2" class="form-label">{{ 'SETTINGS.SHUTDOWN_TEMP' | translate }}:</label>
                             <div class="form-control-wrapper">
-                                <input nbInput id="fan1OverheatTemp" formControlName="fan1OverheatTemp" type="number" />
+                                <input nbInput id="fan1OverheatTemp2" formControlName="fan1OverheatTemp" type="number" />
                             </div>
                         </div>
 
@@ -580,10 +591,20 @@
                     <nb-checkbox formControlName="canMaster">CAN Master Mode</nb-checkbox>
                 </div>
                 <div class="form-row">
-                    <nb-checkbox formControlName="flipscreen">{{ 'MISC.FLIP_SCREEN' | translate }}</nb-checkbox>
+                    <nb-checkbox formControlName="flipScreen">{{ 'MISC.FLIP_SCREEN' | translate }}</nb-checkbox>
                 </div>
                 <div class="form-row">
-                    <nb-checkbox formControlName="autoscreenoff">{{ 'MISC.AUTO_SCREEN_OFF' | translate }}</nb-checkbox>
+                    <nb-checkbox formControlName="autoScreenOff">{{ 'MISC.AUTO_SCREEN_OFF' | translate }}</nb-checkbox>
+                </div>
+                <div class="form-row">
+                    <nb-checkbox formControlName="customMempoolEnabled">{{ 'MISC.CUSTOM_MEMPOOL' | translate }}</nb-checkbox>
+                </div>
+                <div class="form-row" *ngIf="form.controls['customMempoolEnabled'].value">
+                    <label for="mempoolUrl" class="form-label">{{ 'MISC.MEMPOOL_URL' | translate }}:</label>
+                    <div class="form-control-wrapper">
+                        <input nbInput id="mempoolUrl" type="text" formControlName="mempoolUrl"
+                               placeholder="https://mempool.mynode.local" />
+                    </div>
                 </div>
                 <div class="form-row">
                     <label class="form-label">{{ 'SETTINGS.TIME_FORMAT' | translate }}:</label>
@@ -647,6 +668,26 @@
                     <button nbButton status="basic" (click)="dialogRef?.close()">{{ 'COMMON.CANCEL' | translate
                         }}</button>
                 </div>
+            </nb-card-body>
+        </nb-card>
+    </ng-template>
+
+    <ng-template #wifiScanDialog>
+        <nb-card style="width: 420px; max-height: 70vh;">
+            <nb-card-header>{{ 'SETTINGS.WIFI_SCAN_SELECT' | translate }}</nb-card-header>
+            <nb-card-body style="overflow-y: auto;">
+                <div *ngIf="wifiScanResults.length === 0" class="text-hint">
+                    {{ 'SETTINGS.WIFI_SCAN_NONE' | translate }}
+                </div>
+                <button *ngFor="let n of wifiScanResults" nbButton ghost fullWidth
+                        class="wifi-scan-entry"
+                        (click)="selectWifiNetwork(n.ssid)">
+                    <span class="wifi-scan-entry__ssid">{{ n.ssid }}</span>
+                    <span class="wifi-scan-entry__rssi wifi-scan-entry__rssi--{{ wifiSignalStrength(n.rssi) }}">
+                        <nb-icon icon="wifi-outline" pack="eva"></nb-icon>
+                        {{ n.rssi }} dBm
+                    </span>
+                </button>
             </nb-card-body>
         </nb-card>
     </ng-template>

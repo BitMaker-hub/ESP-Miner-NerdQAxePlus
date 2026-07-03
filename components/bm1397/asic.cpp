@@ -196,6 +196,11 @@ uint8_t Asic::addrFromChipIndex(uint8_t idx) {
     return idx * m_addressInterval;
 }
 
+int Asic::nonceToAsic(uint32_t nonce) {
+    uint32_t nonce_h = __bswap32(nonce);
+    return (m_addressInterval > 0) ? ((uint8_t)((nonce_h >> 17) & 0xff) / m_addressInterval) : 0;
+}
+
 void Asic::requestChipTemp() {
     // NOP
 }
@@ -383,9 +388,7 @@ bool Asic::processWork(task_result *result)
 
     uint32_t rolled_version = (reverseUint16(asic_result.version) << 13); // shift the 16 bit value left 13
 
-    // Extract ASIC number from nonce using address_interval (Bitaxe-style)
-    uint32_t nonce_h = __bswap32(asic_result.nonce);
-    int asic_nr = (m_addressInterval > 0) ? ((uint8_t)((nonce_h >> 17) & 0xff) / m_addressInterval) : 0;
+    int asic_nr = nonceToAsic(asic_result.nonce);
 
     // [PROBE] Decode core identification from the nonce for distribution analysis.
     // BM1370 docs: bits 25-31 of the nonce encode the producing core (7-bit core_id).

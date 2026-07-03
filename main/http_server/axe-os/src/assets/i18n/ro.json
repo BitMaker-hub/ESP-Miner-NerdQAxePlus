@@ -147,6 +147,10 @@
     "WIFI_SSID": "Rețea WiFi (SSID)",
     "WIFI_PASSWORD": "Parolă WiFi",
     "WIFI_PASSWORD_PLACEHOLDER": "Introduceți parola WiFi",
+    "WIFI_SCAN": "Scanare WiFi",
+    "WIFI_SCAN_SELECT": "Selectează rețea WiFi",
+    "WIFI_SCAN_NONE": "Nu s-au găsit rețele",
+    "WIFI_SCAN_FAILED": "Scanare WiFi eșuată",
     "FREQUENCY": "Frecvență",
     "VOLTAGE": "Tensiune",
     "CORE_VOLTAGE": "Tensiune core",
@@ -439,14 +443,17 @@
     "FAN_SETTINGS_PORTS_HINT": "<strong>Notă:</strong> Când ieșiți din modul Legat, verificați care porturi ventilator sunt conectate la fiecare ventilator înainte de salvare.",
     "FAN1_CONNECTOR_HINT": "Conectați <strong>ventilatorul ASIC</strong> la conectorul <strong>{{connector}}</strong>.",
     "FAN2_CONNECTOR_HINT": "Conectați <strong>ventilatorul regulatorului tensiune</strong> la conectorul <strong>{{connector}}</strong>.",
-    "FAN_LINKED_HINT": "Ventilatorul VReg urmează ieșirea ventilatorului ASIC. În modul PID, controlul folosește cea mai ridicată temperatură dintre ASIC și VReg."
+    "FAN_LINKED_HINT": "Ventilatorul VReg urmează ieșirea ventilatorului ASIC. În modul PID, controlul folosește cea mai ridicată temperatură dintre ASIC și VReg.",
+    "PID_USE_MAX_TEMP": "PID folosește cea mai ridicată temperatură dintre ASIC și VReg"
   },
   "MISC": {
     "TITLE": "Setări diverse",
     "SETTINGS": "Setări diverse",
     "FLIP_SCREEN": "Răsturnă ecran",
     "AUTO_SCREEN_OFF": "Oprire ecran automată",
-    "STRATUM_KEEPALIVE": "Activează TCP Keepalive Stratum"
+    "STRATUM_KEEPALIVE": "Activează TCP Keepalive Stratum",
+    "CUSTOM_MEMPOOL": "Endpoint Mempool personalizat",
+    "MEMPOOL_URL": "URL Mempool"
   },
   "WARNINGS": {
     "UNSAFE_SETTINGS": "⚠️ Avertisment: Salvare setări nesigure ⚠️",

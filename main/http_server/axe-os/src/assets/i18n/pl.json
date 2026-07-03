@@ -147,6 +147,10 @@
     "WIFI_SSID": "Sieć WiFi (SSID)",
     "WIFI_PASSWORD": "Hasło WiFi",
     "WIFI_PASSWORD_PLACEHOLDER": "Wpisz hasło WiFi",
+    "WIFI_SCAN": "Skanuj WiFi",
+    "WIFI_SCAN_SELECT": "Wybierz sieć WiFi",
+    "WIFI_SCAN_NONE": "Nie znaleziono sieci",
+    "WIFI_SCAN_FAILED": "Skanowanie WiFi nie powiodło się",
     "FREQUENCY": "Częstotliwość",
     "VOLTAGE": "Napięcie",
     "CORE_VOLTAGE": "Napięcie rdzenia",
@@ -439,14 +443,17 @@
     "FAN_SETTINGS_PORTS_HINT": "<strong>Uwaga:</strong> Podczas przełączania z trybu Połączone, sprawdź, które porty wentylatora są podłączone do każdego wentylatora przed zapisaniem.",
     "FAN1_CONNECTOR_HINT": "Podłącz <strong>wentylator ASIC</strong> do złącza <strong>{{connector}}</strong>.",
     "FAN2_CONNECTOR_HINT": "Podłącz <strong>wentylator regulatora napięcia</strong> do złącza <strong>{{connector}}</strong>.",
-    "FAN_LINKED_HINT": "Wentylator VReg podąża za wyjściem wentylatora ASIC. W trybie PID kontroler używa najwyższej temperatury spośród ASIC i VReg."
+    "FAN_LINKED_HINT": "Wentylator VReg podąża za wyjściem wentylatora ASIC. W trybie PID kontroler używa najwyższej temperatury spośród ASIC i VReg.",
+    "PID_USE_MAX_TEMP": "PID używa najwyższej temperatury spośród ASIC i VReg"
   },
   "MISC": {
     "TITLE": "Różne ustawienia",
     "SETTINGS": "Różne ustawienia",
     "FLIP_SCREEN": "Odwróć ekran",
     "AUTO_SCREEN_OFF": "Automatyczne wyłączenie ekranu",
-    "STRATUM_KEEPALIVE": "Włącz TCP Keepalive Stratum"
+    "STRATUM_KEEPALIVE": "Włącz TCP Keepalive Stratum",
+    "CUSTOM_MEMPOOL": "Własny endpoint Mempool",
+    "MEMPOOL_URL": "URL Mempool"
   },
   "WARNINGS": {
     "UNSAFE_SETTINGS": "⚠️ Ostrzeżenie: Zapisywanie niebezpiecznych ustawień ⚠️",

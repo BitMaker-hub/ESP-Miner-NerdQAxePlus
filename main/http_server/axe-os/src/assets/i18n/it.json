@@ -147,6 +147,10 @@
     "WIFI_SSID": "Rete WiFi (SSID)",
     "WIFI_PASSWORD": "Password WiFi",
     "WIFI_PASSWORD_PLACEHOLDER": "Inserisci password WiFi",
+    "WIFI_SCAN": "Cerca WiFi",
+    "WIFI_SCAN_SELECT": "Seleziona rete WiFi",
+    "WIFI_SCAN_NONE": "Nessuna rete trovata",
+    "WIFI_SCAN_FAILED": "Ricerca WiFi fallita",
     "FREQUENCY": "Frequenza",
     "VOLTAGE": "Tensione",
     "CORE_VOLTAGE": "Tensione core",
@@ -439,14 +443,17 @@
     "FAN_SETTINGS_PORTS_HINT": "<strong>Nota:</strong> Quando si esce dalla modalità Collegato, verificare quali porte ventola sono collegate a ciascuna ventola prima di salvare.",
     "FAN1_CONNECTOR_HINT": "Collegare il <strong>ventilatore ASIC</strong> al connettore <strong>{{connector}}</strong>.",
     "FAN2_CONNECTOR_HINT": "Collegare il <strong>ventilatore regolatore tensione</strong> al connettore <strong>{{connector}}</strong>.",
-    "FAN_LINKED_HINT": "Il ventilatore VReg segue l'uscita del ventilatore ASIC. In modalità PID, il controllore utilizza la temperatura più alta tra ASIC e VReg."
+    "FAN_LINKED_HINT": "Il ventilatore VReg segue l'uscita del ventilatore ASIC. In modalità PID, il controllore utilizza la temperatura più alta tra ASIC e VReg.",
+    "PID_USE_MAX_TEMP": "Il PID utilizza la temperatura più alta tra ASIC e VReg"
   },
   "MISC": {
     "TITLE": "Impostazioni varie",
     "SETTINGS": "Impostazioni varie",
     "FLIP_SCREEN": "Capovolgi schermo",
     "AUTO_SCREEN_OFF": "Spegnimento automatico schermo",
-    "STRATUM_KEEPALIVE": "Abilita TCP Keepalive Stratum"
+    "STRATUM_KEEPALIVE": "Abilita TCP Keepalive Stratum",
+    "CUSTOM_MEMPOOL": "Endpoint Mempool personalizzato",
+    "MEMPOOL_URL": "URL Mempool"
   },
   "WARNINGS": {
     "UNSAFE_SETTINGS": "⚠️ Avvertenza: Salvataggio impostazioni non sicure ⚠️",

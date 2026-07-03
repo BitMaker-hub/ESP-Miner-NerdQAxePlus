@@ -1,19 +1,13 @@
 #pragma once
 
-#include "driver/gpio.h"
-#include "mining.h"
-#include "rom/gpio.h"
-#include "bm1368.h"
+#include "bm1370.h"
 
-class BM1373 : public Asic {
+class BM1373 : public BM1370 {
 protected:
     virtual const uint8_t* getChipId();
     virtual uint32_t getDefaultVrFrequency();
+    int nonceToAsic(uint32_t nonce) override;
 
-    virtual uint8_t jobToAsicId(uint8_t job_id);
-    virtual uint8_t asicToJobId(uint8_t asic_id);
-
-    virtual uint8_t nonceToAsicNr(uint32_t nonce);
 public:
     BM1373();
     virtual const char* getName() { return "BM1373"; };

@@ -1,7 +1,7 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, Input, OnInit, TemplateRef } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
-import { switchMap, forkJoin, startWith, tap, catchError, of } from 'rxjs';
+import { switchMap, startWith, tap, catchError, of } from 'rxjs';
 import { LoadingService } from '../../services/loading.service';
 import { SystemService } from '../../services/system.service';
 import { eASICModel } from '../../models/enum/eASICModel';
@@ -11,6 +11,7 @@ import { OtpAuthService, EnsureOtpResult, EnsureOtpOptions } from '../../service
 import { TranslateService } from '@ngx-translate/core';
 import { ActivatedRoute } from '@angular/router';
 import { IStratum } from 'src/app/models/IStratum';
+import { ISettingsV2, ISettingsV2Fan } from '../../models/ISettingsV2';
 
 enum SupportLevel { Safe = 0, Advanced = 1, Pro = 2 }
 
@@ -35,7 +36,7 @@ export class EditComponent implements OnInit {
   public dontShowWarning: boolean = false;
 
   public eASICModel = eASICModel;
-  public ASICModel!: eASICModel;
+  public asicModel!: eASICModel;
 
   public defaultFrequency: number = 0;
   public defaultCoreVoltage: number = 0;
@@ -44,6 +45,11 @@ export class EditComponent implements OnInit {
 
   public lastCoinbaseVerifyMode: number = 1;
   public lastFallbackCoinbaseVerifyMode: number = 1;
+
+  // WiFi scan
+  public apActive = false;
+  public wifiScanning = false;
+  public wifiScanResults: { ssid: string; rssi: number; authmode: number }[] = [];
 
   toggleCoinbaseVerify(enabled: boolean, controlName: string, lastRef: 'lastCoinbaseVerifyMode' | 'lastFallbackCoinbaseVerifyMode') {
     const ctrl = this.form.controls[controlName];
@@ -68,18 +74,15 @@ export class EditComponent implements OnInit {
   private asicFrequencyValues: number[] = [];
   private asicVoltageValues: number[] = [];
 
-  private stratum: IStratum = null;
-
   private rebootRequiredFields = new Set<string>([
-    'flipscreen',
-    'invertscreen',
+    'flipScreen',
+    'invertScreen',
     'hostname',
     'ssid',
     'wifiPass',
-    'wifiStatus',
-    'invertfanpolarity',
+    'invertFanPolarity',
     'stratumDifficulty',
-    'stratum_keep',
+    'stratumKeep',
     'canMaster',
     'poolMode',
     'stratumProtocol',
@@ -133,6 +136,7 @@ export class EditComponent implements OnInit {
   }
 
   ngOnInit(): void {
+
     // Deep-link from the home dashboard pencils: ?section=pool|asic scrolls to
     // the matching config card once the (async-loaded) form has rendered.
     this.route.queryParams.subscribe(params => {
@@ -141,39 +145,36 @@ export class EditComponent implements OnInit {
       if (id) this.scrollToSectionWhenReady(id);
     });
 
-    forkJoin({
-      info: this.systemService.getInfo(0, 0, this.uri),
-      asic: this.systemService.getAsicInfo(this.uri)
-    })
+    this.systemService.getSettingsV2(this.uri)
+
       .pipe(this.loadingService.lockUIUntilComplete())
-      .subscribe(({ info, asic }) => {
+      .subscribe((info: ISettingsV2) => {
         this.originalSettings = structuredClone(info);
 
-        // nasty work around
-        this.originalSettings["poolMode"] = info.stratum?.poolMode ?? 0;
+        this.originalSettings["poolMode"] = info.poolMode ?? 0;
+        this.originalSettings["stratumProtocol"] = info.pools?.[0]?.protocol ?? 0;
+        this.originalSettings["fallbackStratumProtocol"] = info.pools?.[1]?.protocol ?? 0;
+        this.originalSettings["canMaster"] = info.can?.enabled ? 1 : 0;
 
         this.otpEnabled = !!info.otp;
-        this.hasCanExtension = !!info.can?.hasExtension;
+        this.apActive = !!info.apActive;
+        this.hasCanExtension = !!info.can.hasExtension;
 
-        // Model still from /info (enum-typed)
-        this.ASICModel = info.ASICModel;
+        this.asicModel = info.asicModel;
 
-        // Prefer defaults from /asic, otherwise fallback to /info
-        this.defaultFrequency = (asic?.defaultFrequency ?? info.defaultFrequency ?? 0);
-        this.defaultCoreVoltage = (asic?.defaultVoltage ?? info.defaultCoreVoltage ?? 0);
+        this.defaultFrequency = info.defaultFrequency ?? 0;
+        this.defaultCoreVoltage = info.defaultCoreVoltage ?? 0;
 
-        // eco only from /asic (optional)
-        this.ecoFrequency = asic?.ecoFrequency ?? undefined;
-        this.ecoCoreVoltage = asic?.ecoVoltage ?? undefined;
+        this.ecoFrequency = info.ecoFrequency ?? undefined;
+        this.ecoCoreVoltage = info.ecoCoreVoltage ?? undefined;
 
-        // Store raw options (can be empty if the endpoint returns nothing)
-        this.asicFrequencyValues = asic?.frequencyOptions ?? [];
-        this.asicVoltageValues = asic?.voltageOptions ?? [];
+        this.asicFrequencyValues = info.frequencyOptions ?? [];
+        this.asicVoltageValues = info.voltageOptions ?? [];
 
         this.defaultVrFrequency = info.defaultVrFrequency ?? undefined;
 
-        this.fanCount = info.fans?.length ?? info.fanCount ?? 1;
-        this.fanLabels = info.fans?.map((f, i) => f.label || `Fan ${i + 1}`) ?? ['Fan 1', 'Fan 2'];
+        this.fanCount = info.fans?.length ?? 1;
+        this.fanLabels = info.fans?.map((f: ISettingsV2Fan, i: number) => f.label || `Fan ${i + 1}`) ?? ['Fan 1', 'Fan 2'];
         const fan1cfg = info.fans?.[1];
 
         const freqBase = this.asicFrequencyValues.map(v => {
@@ -194,104 +195,100 @@ export class EditComponent implements OnInit {
         this.frequencyOptions = this.assembleDropdownOptions(freqBase, info.frequency);
         this.voltageOptions = this.assembleDropdownOptions(voltBase, info.coreVoltage);
 
-        // fix setting where we allowed to disable temp shutdown
-        if (info.overheat_temp == 0) {
-          info.overheat_temp = 70;
-        }
-        // respect bounds
-        info.overheat_temp = Math.max(40, Math.min(90, info.overheat_temp));
-
         // Build the form (Min/Max for volt/freq will be set dynamically right after)
         this.form = this.fb.group({
-          stratum_keep: [info.stratum_keep == 1],
-          canMaster: [info.can?.enabled == true],
-          flipscreen: [info.flipscreen == 1],
-          invertscreen: [info.invertscreen == 1],
-          autoscreenoff: [info.autoscreenoff == 1],
+          stratumKeep: [info.stratumKeep == 1],
+          canMaster: [info.can.enabled == true],
+          flipScreen: [info.flipScreen == 1],
+          invertScreen: [info.invertScreen == 1],
+          autoScreenOff: [info.autoScreenOff == 1],
+          customMempoolEnabled: [!!info.mempoolCustom],
+          mempoolUrl: [info.mempoolUrl || 'https://mempool.space'],
           timeFormat: [this.localStorageService.getItem('timeFormat') || '24h'],
-          stratumURL: [info.stratumURL, [
+          stratumURL: [info.pools[0].url, [
             Validators.required,
             Validators.pattern(/^(?!.*stratum\+tcp:\/\/).*$/),
             Validators.pattern(/^[^:]*$/),
           ]],
-          stratumPort: [info.stratumPort, [
+          stratumPort: [info.pools[0].port, [
             Validators.required,
             Validators.pattern(/^[^:]*$/),
             Validators.min(0),
             Validators.max(65353)
           ]],
-          stratumUser: [info.stratumUser, [Validators.required]],
+          stratumUser: [info.pools[0].user, [Validators.required]],
           stratumPassword: ['*****', [Validators.required]],
-          stratumEnonceSubscribe: [info.stratumEnonceSubscribe == 1],
-          stratumTLS: [info.stratumTLS == 1],
-          coinbaseVerifyMode: [info.coinbaseVerifyMode ?? 0],
-          coinbaseMaxFee: [info.coinbaseMaxFee ?? 3.0],
-          coinbaseVerifyForce: [info.coinbaseVerifyForce ?? false],
+          stratumEnonceSubscribe: [info.pools[0].enonceSubscribe == 1],
+          stratumTLS: [info.pools[0].tls == 1],
+          coinbaseVerifyMode: [info.pools[0].coinbaseVerifyMode ?? 0],
+          coinbaseMaxFee: [info.pools[0].coinbaseMaxFee ?? 3.0],
+          coinbaseVerifyForce: [info.pools[0].coinbaseVerifyForce ?? false],
 
-          fallbackStratumURL: [info.fallbackStratumURL, [
+          fallbackStratumURL: [info.pools[1].url, [
             Validators.pattern(/^(?!.*stratum\+tcp:\/\/).*$/),
             Validators.pattern(/^[^:]*$/),
           ]],
-          fallbackStratumPort: [info.fallbackStratumPort, [
+          fallbackStratumPort: [info.pools[1].port, [
             Validators.pattern(/^[^:]*$/),
             Validators.min(0),
             Validators.max(65353)
           ]],
-          fallbackStratumUser: [info.fallbackStratumUser],
+          fallbackStratumUser: [info.pools[1].user],
           fallbackStratumPassword: ['*****'],
-          fallbackStratumEnonceSubscribe: [info.fallbackStratumEnonceSubscribe == 1],
-          fallbackStratumTLS: [info.fallbackStratumTLS == 1],
-          fallbackCoinbaseVerifyMode: [info.fallbackCoinbaseVerifyMode ?? 0],
-          fallbackCoinbaseMaxFee: [info.fallbackCoinbaseMaxFee ?? 3],
-          fallbackCoinbaseVerifyForce: [info.fallbackCoinbaseVerifyForce ?? false],
+          fallbackStratumEnonceSubscribe: [info.pools[1].enonceSubscribe == 1],
+          fallbackStratumTLS: [info.pools[1].tls == 1],
+          fallbackCoinbaseVerifyMode: [info.pools[1].coinbaseVerifyMode ?? 0],
+          fallbackCoinbaseMaxFee: [info.pools[1].coinbaseMaxFee ?? 3],
+          fallbackCoinbaseVerifyForce: [info.pools[1].coinbaseVerifyForce ?? false],
 
           hostname: [info.hostname, [Validators.required]],
           ssid: [info.ssid, [Validators.required]],
           wifiPass: ['*****'],
 
-          coreVoltage: [info.coreVoltage, [Validators.min(800), Validators.max(1400), Validators.required]],
+          coreVoltage: [info.coreVoltage, [Validators.min(info.absMinCoreVoltage || 1005), Validators.max(info.absMaxCoreVoltage || 1400), Validators.required]],
           frequency: [info.frequency, [Validators.required]],
           jobInterval: [info.jobInterval, [Validators.required]],
           stratumDifficulty: [info.stratumDifficulty, [Validators.required, Validators.min(1)]],
 
-          stratumProtocol: [info.stratumProtocol ?? 0, [Validators.required]],   // 0 = V1, 1 = V2
-          fallbackStratumProtocol: [info.fallbackStratumProtocol ?? 0],
-          sv2AuthorityPubkey: [info.sv2AuthorityPubkey ?? ''],
-          fallbackSv2AuthorityPubkey: [info.fallbackSv2AuthorityPubkey ?? ''],
-          sv2ChannelType: [info.sv2ChannelType ?? 0],                              // 0 = Extended, 1 = Standard
-          fallbackSv2ChannelType: [info.fallbackSv2ChannelType ?? 0],
+          stratumProtocol: [info.pools[0].protocol ?? 0, [Validators.required]],   // 0 = V1, 1 = V2
+          fallbackStratumProtocol: [info.pools[1].protocol ?? 0],
+          sv2AuthorityPubkey: [info.pools[0].sv2AuthorityPubkey ?? ''],
+          fallbackSv2AuthorityPubkey: [info.pools[1].sv2AuthorityPubkey ?? ''],
+          sv2ChannelType: [info.pools[0].sv2ChannelType ?? 0],                      // 0 = Extended, 1 = Standard
+          fallbackSv2ChannelType: [info.pools[1].sv2ChannelType ?? 0],
 
-          poolMode: [info.stratum?.poolMode ?? 0, [Validators.required]],        // 0 = Failover, 1 = Dual
-          poolBalance: [info.stratum?.poolBalance ?? 50, [                  // Anteil PRIMARY in %
+          poolMode: [info.poolMode ?? 0, [Validators.required]],                   // 0 = Failover, 1 = Dual
+          poolBalance: [info.poolBalance ?? 50, [                                   // Anteil PRIMARY in %
             Validators.required,
             Validators.min(0),
             Validators.max(100),
           ]],
 
-          autofanspeed: [info.autofanspeed ?? 0, [Validators.required]],
-          pidTargetTemp: [info.pidTargetTemp ?? 55, [
+          autofanspeed: [info.fans[0]?.mode ?? 0, [Validators.required]],
+          pidTargetTemp: [info.fans[0]?.pid?.targetTemp ?? 55, [
             Validators.min(30),
             Validators.max(80),
             Validators.required
           ]],
-          pidP: [info.pidP ?? 6, [
+          pidP: [info.fans[0]?.pid?.p ?? 6, [
             Validators.min(0),
             Validators.max(100),
             Validators.required
           ]],
-          pidI: [info.pidI ?? 0.1, [
+          pidI: [info.fans[0]?.pid?.i ?? 0.1, [
             Validators.min(0),
             Validators.max(10),
             Validators.required
           ]],
-          pidD: [info.pidD ?? 10, [
+          pidD: [info.fans[0]?.pid?.d ?? 10, [
             Validators.min(0),
             Validators.max(100),
             Validators.required
           ]],
-          invertfanpolarity: [info.invertfanpolarity == 1, [Validators.required]],
-          manualFanSpeed: [info.manualFanSpeed, [Validators.required]],
-          overheat_temp: [info.overheat_temp, [
+          invertFanPolarity: [info.invertFanPolarity == 1, [Validators.required]],
+          pidUseMax: [info.pidUseMax ?? true],
+          manualFanSpeed: [info.fans[0]?.manualSpeed ?? 100, [Validators.required]],
+          overheat_temp: [info.fans[0]?.overheatTemp ?? 70, [
             Validators.min(40),
             Validators.max(90),
             Validators.required
@@ -313,10 +310,8 @@ export class EditComponent implements OnInit {
           fan1PidD: [fan1cfg?.pid?.d ?? 10, [Validators.min(0), Validators.max(100), Validators.required]],
         });
 
-        this.stratum = info.stratum;
-
-        this.lastCoinbaseVerifyMode = info.coinbaseVerifyMode || 1;
-        this.lastFallbackCoinbaseVerifyMode = info.fallbackCoinbaseVerifyMode || 1;
+        this.lastCoinbaseVerifyMode = info.pools[0].coinbaseVerifyMode || 1;
+        this.lastFallbackCoinbaseVerifyMode = info.pools[1].coinbaseVerifyMode || 1;
 
         this.form.controls['autofanspeed'].valueChanges
           .pipe(startWith(this.form.controls['autofanspeed'].value))
@@ -403,55 +398,99 @@ export class EditComponent implements OnInit {
   }
 
   public updateSystem(totp?: string) {
-    const form = this.form.getRawValue();
+    const f = this.form.getRawValue();
 
     // Client-only preference
-    if (form.timeFormat) {
-      this.localStorageService.setItem('timeFormat', form.timeFormat);
-      window.dispatchEvent(new CustomEvent('timeFormatChanged', { detail: form.timeFormat }));
-      delete form.timeFormat;
+    if (f.timeFormat) {
+      this.localStorageService.setItem('timeFormat', f.timeFormat);
+      window.dispatchEvent(new CustomEvent('timeFormatChanged', { detail: f.timeFormat }));
     }
 
-    // Allow empty WiFi password; strip masked fields
-    form.wifiPass = form.wifiPass == null ? '' : form.wifiPass;
-    if (form.wifiPass === '*****') delete form.wifiPass;
-    if (form.stratumPassword === '*****') delete form.stratumPassword;
-    if (form.fallbackStratumPassword === '*****') delete form.fallbackStratumPassword;
+    // Build pools[] array matching GET /api/v2/settings structure
+    const pool0: any = {
+      url: f.stratumURL,
+      port: f.stratumPort,
+      user: f.stratumUser,
+      enonceSubscribe: !!f.stratumEnonceSubscribe,
+      tls: !!f.stratumTLS,
+      protocol: f.stratumProtocol,
+      sv2AuthorityPubkey: f.sv2AuthorityPubkey,
+      sv2ChannelType: f.sv2ChannelType,
+      coinbaseVerifyMode: f.coinbaseVerifyMode,
+      coinbaseMaxFee: f.coinbaseMaxFee,
+      coinbaseVerifyForce: !!f.coinbaseVerifyForce,
+    };
+    if (f.stratumPassword !== '*****') pool0.password = f.stratumPassword;
 
-    form.stratum_keep = form.stratum_keep ? 1 : 0;
-    form.canMaster = form.canMaster ? 1 : 0;
+    const pool1: any = {
+      url: f.fallbackStratumURL,
+      port: f.fallbackStratumPort,
+      user: f.fallbackStratumUser,
+      enonceSubscribe: !!f.fallbackStratumEnonceSubscribe,
+      tls: !!f.fallbackStratumTLS,
+      protocol: f.fallbackStratumProtocol,
+      sv2AuthorityPubkey: f.fallbackSv2AuthorityPubkey,
+      sv2ChannelType: f.fallbackSv2ChannelType,
+      coinbaseVerifyMode: f.fallbackCoinbaseVerifyMode,
+      coinbaseMaxFee: f.fallbackCoinbaseMaxFee,
+      coinbaseVerifyForce: !!f.fallbackCoinbaseVerifyForce,
+    };
+    if (f.fallbackStratumPassword !== '*****') pool1.password = f.fallbackStratumPassword;
 
-
-    // fans[]-Array for the new per channel api
-    form.fans = [
+    // Build fans[] array
+    const fans: any[] = [
       {
-        mode: form.autofanspeed,
-        manualSpeed: form.manualFanSpeed,
-        overheatTemp: form.overheat_temp,
-        pid: { targetTemp: form.pidTargetTemp, p: form.pidP, i: form.pidI, d: form.pidD }
+        mode: f.autofanspeed,
+        manualSpeed: f.manualFanSpeed,
+        overheatTemp: f.overheat_temp,
+        pid: { targetTemp: f.pidTargetTemp, p: f.pidP, i: f.pidI, d: f.pidD }
       }
     ];
     if (this.fanCount > 1) {
-      form.fans.push({
-        mode: form.fan1Mode,
-        manualSpeed: form.fan1ManualSpeed,
-        overheatTemp: form.fan1OverheatTemp,
-        pid: { targetTemp: form.fan1PidTargetTemp, p: form.fan1PidP, i: form.fan1PidI, d: form.fan1PidD }
+      fans.push({
+        mode: f.fan1Mode,
+        manualSpeed: f.fan1ManualSpeed,
+        overheatTemp: f.fan1OverheatTemp,
+        pid: { targetTemp: f.fan1PidTargetTemp, p: f.fan1PidP, i: f.fan1PidI, d: f.fan1PidD }
       });
     }
-    delete form.fan1Mode;
-    delete form.fan1ManualSpeed;
-    delete form.fan1OverheatTemp;
-    delete form.fan1PidTargetTemp;
-    delete form.fan1PidP;
-    delete form.fan1PidI;
-    delete form.fan1PidD;
 
-    if (this.pendingTotp) {
-      form.totp = this.pendingTotp;
-    }
+    // Build v2 payload
+    const payload: any = {
+      // Network
+      hostname: f.hostname,
+      ssid: f.ssid,
+      // ASIC
+      frequency: f.frequency,
+      coreVoltage: f.coreVoltage,
+      vrFrequency: f.vrFrequency,
+      jobInterval: f.jobInterval,
+      stratumDifficulty: f.stratumDifficulty,
+      // Stratum
+      poolMode: f.poolMode,
+      poolBalance: f.poolBalance,
+      stratumKeep: f.stratumKeep ? 1 : 0,
+      pools: [pool0, pool1],
+      // Fans
+      fans,
+      invertFanPolarity: !!f.invertFanPolarity,
+      pidUseMax: !!f.pidUseMax,
+      // Mempool
+      mempoolCustom: !!f.customMempoolEnabled,
+      mempoolUrl: f.customMempoolEnabled ? f.mempoolUrl : '',
+      // Display
+      flipScreen: !!f.flipScreen,
+      invertScreen: !!f.invertScreen,
+      autoScreenOff: !!f.autoScreenOff,
+      // CAN
+      canMaster: !!f.canMaster,
+    };
 
-    return this.systemService.updateSystem(this.uri, form, totp)
+    // WiFi password — allow empty, strip masked
+    const wifiPass = f.wifiPass == null ? '' : f.wifiPass;
+    if (wifiPass !== '*****') payload.wifiPass = wifiPass;
+
+    return this.systemService.updateSettingsV2(this.uri, payload, totp);
   }
 
   get requiresReboot(): boolean {
@@ -467,9 +506,14 @@ export class EditComponent implements OnInit {
       const currentValue = this.normalizeValue(current[key]);
       const originalValue = this.normalizeValue(this.originalSettings[key]);
 
-      // Special case: masked password fields
+      // Masked password fields: unchanged if still '*****', changed otherwise
       if (typeof currentValue === 'string' && currentValue === '*****') {
-        continue; // User hasn't changed this field
+        continue;
+      }
+      // Fields not present in original settings (e.g. wifiPass):
+      // if we got past the '*****' check, the user has typed something new
+      if (originalValue === undefined || originalValue === null) {
+        return true;
       }
 
       if (currentValue !== originalValue) {
@@ -685,6 +729,47 @@ export class EditComponent implements OnInit {
       set(ka, get(kb));
       set(kb, tmp);
     }
+  }
+
+  public scanWifi(dialog: TemplateRef<any>): void {
+    if (this.wifiScanning) return;
+    this.wifiScanning = true;
+    this.systemService.scanWifi().subscribe({
+      next: (response) => {
+        const byStrength: { [ssid: string]: { ssid: string; rssi: number; authmode: number } } = {};
+        for (const n of response.networks || []) {
+          if (!n.ssid) continue;
+          if (!byStrength[n.ssid] || n.rssi > byStrength[n.ssid].rssi) {
+            byStrength[n.ssid] = n;
+          }
+        }
+        this.wifiScanResults = Object.values(byStrength).sort((a, b) => b.rssi - a.rssi);
+        this.wifiScanning = false;
+        this.dialogRef = this.dialogService.open(dialog, { closeOnBackdropClick: true });
+      },
+      error: () => {
+        this.wifiScanning = false;
+        this.toastrService.danger(
+          this.translate.instant('SETTINGS.WIFI_SCAN_FAILED'),
+          this.translate.instant('COMMON.ERROR')
+        );
+      }
+    });
+  }
+
+  public selectWifiNetwork(ssid: string): void {
+    this.form.patchValue({ ssid });
+    this.form.markAsDirty();
+    if (this.dialogRef) {
+      this.dialogRef.close();
+    }
+  }
+
+  public wifiSignalStrength(rssi: number): string {
+    if (rssi >= -50) return 'excellent';
+    if (rssi >= -60) return 'good';
+    if (rssi >= -70) return 'fair';
+    return 'weak';
   }
 
 }

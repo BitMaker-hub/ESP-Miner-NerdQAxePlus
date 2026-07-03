@@ -36,6 +36,7 @@ NerdQaxePlus::NerdQaxePlus() : Board() {
     m_defaultAsicFrequency = m_asicFrequency = 490;
     m_defaultAsicVoltageMillis = m_asicVoltageMillis = 1250; // default voltage
     m_absMaxAsicFrequency = 800;
+    m_absMinAsicVoltageMillis = 1050;
     m_absMaxAsicVoltageMillis = 1400;
     m_initVoltageMillis = 1250;
     m_fanInvertPolarity = false;
@@ -312,6 +313,9 @@ float NerdQaxePlus::getTemperature(int index) {
 
 
 float NerdQaxePlus::getVRTemp() {
+    if (!m_tps->uses_external_vr_temperature()) {
+        return m_tps->get_temperature();
+    }
     return TMP1075_read_temperature(1);
 }
 
@@ -460,6 +464,7 @@ bool NerdQaxePlus::selfTest(){
     //Update SelfTest flag
     if(allAsicsDetected) {
         Config::setSelfTest(false);
+        Config::flush();
     }
 
     return true;

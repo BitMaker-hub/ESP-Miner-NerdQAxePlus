@@ -23,17 +23,12 @@ static const char *TAG = "bm1373Module";
 
 static const uint8_t chip_id[6] = {0xaa, 0x55, 0x13, 0x72, 0x00, 0x00};
 
-// CORE_COUNT confirmed by nonce histogram: chip exposes 128 core_id positions
-// in the 7-bit space (same as BM1370).
-// SMALL_CORE_COUNT derived from spec: 2.5 TH/s @ 375 MHz / 4 chips (Antminer S23)
-//   2500 GH/s / 375 MHz × 1000 = 6667 small cores per chip
-// (Currently only ~54/128 cores produce nonces, but the chip silicon has all.)
-static const uint64_t BM1373_CORE_COUNT = 128;
-static const uint64_t BM1373_SMALL_CORE_COUNT = 6667;
+static const uint64_t BM1373_CORE_COUNT = 128; // TODO
+static const uint64_t BM1373_SMALL_CORE_COUNT = 6860; // TODO
 
 #define REG_NONCE_TOTAL_CNT 0x8c
 
-BM1373::BM1373() : Asic() {
+BM1373::BM1373() : BM1370() {
     // NOP
 }
 
@@ -49,109 +44,72 @@ uint8_t BM1373::init(uint64_t frequency, uint16_t asic_count, uint32_t difficult
 {
     // reset is done externally to not have board dependencies
 
-    // enable and set version rolling mask to 0xFFFF
-    send6(CMD_WRITE_ALL, 0x00, 0xA4, 0x90, 0x00, 0xFF, 0xFF);
-
-    // enable and set version rolling mask to 0xFFFF (again)
-    send6(CMD_WRITE_ALL, 0x00, 0xA4, 0x90, 0x00, 0xFF, 0xFF);
-
-    // enable and set version rolling mask to 0xFFFF (again)
-    send6(CMD_WRITE_ALL, 0x00, 0xA4, 0x90, 0x00, 0xFF, 0xFF);
-
-    // enable and set version rolling mask to 0xFFFF (again)
-    send6(CMD_WRITE_ALL, 0x00, 0xA4, 0x90, 0x00, 0xFF, 0xFF);
+    // set version rolling mask to 0xFFFF (pre-enumerate, without enable bit)
+    send6(CMD_WRITE_ALL, 0x00, 0xA4, 0x80, 0x00, 0xFF, 0xFF);
+    send6(CMD_WRITE_ALL, 0x00, 0xA4, 0x80, 0x00, 0xFF, 0xFF);
+    send6(CMD_WRITE_ALL, 0x00, 0xA4, 0x80, 0x00, 0xFF, 0xFF);
+    send6(CMD_WRITE_ALL, 0x00, 0xA4, 0x80, 0x00, 0xFF, 0xFF);
 
     int chip_counter = count_asics();
     ESP_LOGIE(chip_counter == asic_count, TAG, "%i chip(s) detected on the chain, expected %i", chip_counter, asic_count);
 
-    // enable and set version rolling mask to 0xFFFF (again)
-    send6(CMD_WRITE_ALL, 0x00, 0xA4, 0x90, 0x00, 0xFF, 0xFF);
+    send6(CMD_WRITE_ALL, 0x00, 0xA4, 0x80, 0x00, 0xFF, 0xFF);
 
     // Reg_A8
     send6(CMD_WRITE_ALL, 0x00, 0xA8, 0x00, 0x07, 0x00, 0x00);
 
     // Misc Control
-    //send6(CMD_WRITE_ALL, 0x00, 0x18, 0xFF, 0x0F, 0xC1, 0x00);
-    send6(CMD_WRITE_ALL, 0x00, 0x18, 0xF0, 0x00, 0xC1, 0x00);
+    send6(CMD_WRITE_ALL, 0x00, 0x18, 0xFF, 0x00, 0xC1, 0x00);
 
     // chain inactive
     sendChainInactive();
 
-    // set chip address - distribute evenly across 0-255 range
-    m_addressInterval = (chip_counter > 0) ? (256 / next_power_of_two(chip_counter)) : 4;
+    // set chip addresses
+    m_addressInterval = 16;
     for (uint8_t i = 0; i < chip_counter; i++) {
         setChipAddress(i * m_addressInterval);
     }
-
-    // Core Register Control
-    send6(CMD_WRITE_ALL, 0x00, 0x3C, 0x80, 0x00, 0x8B, 0x00);
 
     // Core Register Control
     send6(CMD_WRITE_ALL, 0x00, 0x3C, 0x80, 0x00, 0x80, 0x0C);
 
     setJobDifficultyMask(difficulty);
 
-    // Set the IO Driver Strength on chip 00
+    // Set the IO Driver Strength
     send6(CMD_WRITE_ALL, 0x00, 0x58, 0x00, 0x01, 0x11, 0x11);
 
-    // ?
+    // PLL3 Parameter
     send6(CMD_WRITE_ALL, 0x00, 0x68, 0x5A, 0xA5, 0x5A, 0xA5);
 
-    // set baud
-    //send6(CMD_WRITE_ALL, 0x00, 0x28, 0x01, 0x30, 0x00, 0x00);
-
+    // per-chip configuration
     for (uint8_t i = 0; i < chip_counter; i++) {
         uint8_t addr = i * m_addressInterval;
-        // Reg_A8
         send6(CMD_WRITE_SINGLE, addr, 0xA8, 0x00, 0x07, 0x01, 0xF0);
-        // Misc Control
-        send6(CMD_WRITE_SINGLE, addr, 0x18, 0xF0, 0x00, 0xC1, 0x00);
-        // Core Register Control
-        send6(CMD_WRITE_SINGLE, addr, 0x3C, 0x80, 0x00, 0x8B, 0x00);
-        // Core Register Control
+        send6(CMD_WRITE_SINGLE, addr, 0x18, 0xFF, 0x00, 0xC1, 0x00);
         send6(CMD_WRITE_SINGLE, addr, 0x3C, 0x80, 0x00, 0x80, 0x0C);
-        // Core Register Control
         send6(CMD_WRITE_SINGLE, addr, 0x3C, 0x80, 0x00, 0x82, 0xAA);
     }
-
-    // ?
-    send6(CMD_WRITE_ALL, 0x00, 0xB9, 0x00, 0x00, 0x44, 0x80);
 
     // Analog Mux Control
     send6(CMD_WRITE_ALL, 0x00, 0x54, 0x00, 0x00, 0x00, 0x02);
 
-    // ?
-    send6(CMD_WRITE_ALL, 0x00, 0xB9, 0x00, 0x00, 0x44, 0x80);
-
-    // Core Register Control
-    send6(CMD_WRITE_ALL, 0x00, 0x3C, 0x80, 0x00, 0x8D, 0xEE);
-
     doFrequencyTransition(frequency);
 
-    // set 0x10
+    // set version rolling frequency
     setVrFrequency(vrFrequency);
 
+    // enable version rolling (0x90 = enable bit set)
     send6(CMD_WRITE_ALL, 0x00, 0xA4, 0x90, 0x00, 0xFF, 0xFF);
 
     return chip_counter;
 }
 
-uint8_t BM1373::jobToAsicId(uint8_t job_id) {
-    // job-IDs: 00, 18, 30, 48, 60, 78, 10, 28, 40, 58, 70, 08, 20, 38, 50, 68
-    return (job_id * 24) & 0x7f;
-}
-
-uint8_t BM1373::asicToJobId(uint8_t asic_id) {
-    return (asic_id & 0xf0) >> 1;
-}
-
-uint8_t BM1373::nonceToAsicNr(uint32_t nonce) {
-    return (uint8_t) ((nonce & 0x0000fc00) >> 11);
-}
-
-// chipIndexFromAddr and addrFromChipIndex now use base class
-// implementation with m_addressInterval (set during init)
-
 uint16_t BM1373::getSmallCoreCount() {
     return BM1373_SMALL_CORE_COUNT;
+}
+
+int BM1373::nonceToAsic(uint32_t nonce) {
+    // TODO: verify shift and mask with different chip counts
+    uint32_t nonce_h = __bswap32(nonce);
+    return (nonce_h >> 24) & 0x03;
 }

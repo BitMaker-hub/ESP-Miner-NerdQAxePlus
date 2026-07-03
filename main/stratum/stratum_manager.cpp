@@ -96,12 +96,12 @@ void StratumManager::task()
     // Create the Stratum tasks for both pools
     for (int i = 0; i < 2; i++) {
         m_stratumTasks[i] = createTask(i);
-        xTaskCreate(m_stratumTasks[i]->taskWrapper, (i == 0) ? "stratum task (pri)" : "stratum task (sec)", 8192,
-                    (void *) m_stratumTasks[i], 5, NULL);
+        xTaskCreatePSRAM(m_stratumTasks[i]->taskWrapper, (i == 0) ? "stratum task (pri)" : "stratum task (sec)", 8192,
+                         (void *) m_stratumTasks[i], 5, NULL);
 
         m_pingTasks[i] = new PingTask(this, i);
-        xTaskCreate(m_pingTasks[i]->ping_task_wrapper, (i == 0) ? "ping task (pri)" : "ping task (sec)", 4096,
-                    (void *) m_pingTasks[i], 1, NULL);
+        xTaskCreatePSRAM(m_pingTasks[i]->ping_task_wrapper, (i == 0) ? "ping task (pri)" : "ping task (sec)", 4096,
+                         (void *) m_pingTasks[i], 1, NULL);
     }
 
     if (m_poolmode == PoolMode::DUAL) {
@@ -306,6 +306,9 @@ void StratumManager::loadSettings(bool reconnect)
         if (m_stratumTasks[i]) {
             m_stratumTasks[i]->triggerReconnect();
         }
+
+        // reset session stats for this pool
+        resetPoolSessionStats(i);
 
         // reset verification stats and unblock pool on reconnect
         // NOTE: do NOT call resetVerificationStats() here — loadSettings() is always
@@ -635,4 +638,3 @@ double get_recent_ping_loss()
     PingTask *task = STRATUM_MANAGER->getPingTask(idx);
     return task ? task->get_recent_ping_loss() : 0.0;
 }
-

@@ -11,6 +11,7 @@ const static char* TAG = "board";
 
 Board::Board() {
     m_absMaxAsicFrequency = 0;
+    m_absMinAsicVoltageMillis = 0;
     m_absMaxAsicVoltageMillis = 0;
     m_vrFrequency = m_defaultVrFrequency = 0;
     m_hasHashCounter = false;
@@ -156,9 +157,16 @@ void Board::setVrFrequency(uint32_t freq) {
 }
 
 bool Board::validateVoltage(float core_voltage) {
+    if (core_voltage == 0.0f) {
+        return true;  // 0V = disable output
+    }
     int millis = (int) (core_voltage * 1000.0f);
     // we allow m_absMaxAsicVoltageMillis = 0 for no limit to not break what was
     // working before on nerdaxe and nerdaxegamma
+    if (m_absMinAsicVoltageMillis && millis < m_absMinAsicVoltageMillis) {
+        ESP_LOGE(TAG, "Validation error. ASIC voltage %d is lower than absolute minimum value %d", millis, m_absMinAsicVoltageMillis);
+        return false;
+    }
     if (m_absMaxAsicVoltageMillis && millis > m_absMaxAsicVoltageMillis) {
         ESP_LOGE(TAG, "Validation error. ASIC voltage %d is higher than absolute maximum value %d", millis, m_absMaxAsicVoltageMillis);
         return false;

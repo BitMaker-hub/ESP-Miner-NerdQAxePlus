@@ -5,7 +5,7 @@ import { TranslateService } from '@ngx-translate/core';
 import { NbMenuItem } from '@nebular/theme';
 import { catchError, filter } from 'rxjs/operators';
 import { of, Subscription } from 'rxjs';
-import { ISystemInfo } from '../models/ISystemInfo';
+import { IIdentifyV2 } from '../models/IIdentifyV2';
 
 @Component({
     selector: 'ngx-pages',

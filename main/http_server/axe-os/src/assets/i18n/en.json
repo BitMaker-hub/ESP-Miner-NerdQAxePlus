@@ -147,6 +147,10 @@
     "WIFI_SSID": "WiFi Network (SSID)",
     "WIFI_PASSWORD": "WiFi Password",
     "WIFI_PASSWORD_PLACEHOLDER": "Enter WiFi password",
+    "WIFI_SCAN": "Scan WiFi",
+    "WIFI_SCAN_SELECT": "Select WiFi Network",
+    "WIFI_SCAN_NONE": "No networks found",
+    "WIFI_SCAN_FAILED": "WiFi scan failed",
     "FREQUENCY": "Frequency",
     "VOLTAGE": "Voltage",
     "CORE_VOLTAGE": "Core Voltage",
@@ -439,14 +443,17 @@
     "FAN_SETTINGS_PORTS_HINT": "<strong>Note:</strong> When switching away from Linked mode, check which fan ports each fan is connected to before saving.",
     "FAN1_CONNECTOR_HINT": "Connect the <strong>ASIC fan</strong> to connector <strong>{{connector}}</strong>.",
     "FAN2_CONNECTOR_HINT": "Connect the <strong>Voltage Regulator fan</strong> to connector <strong>{{connector}}</strong>.",
-    "FAN_LINKED_HINT": "The VReg fan follows the ASIC fan output. In PID mode, the controller uses the highest of ASIC and VReg temperatures."
+    "FAN_LINKED_HINT": "The VReg fan follows the ASIC fan output. In PID mode, the controller uses the highest of ASIC and VReg temperatures.",
+    "PID_USE_MAX_TEMP": "PID uses highest of ASIC and VReg temperature"
   },
   "MISC": {
     "TITLE": "Misc Settings",
     "SETTINGS": "Misc Settings",
     "FLIP_SCREEN": "Flip Screen",
     "AUTO_SCREEN_OFF": "Automatic Screen Shutdown",
-    "STRATUM_KEEPALIVE": "Enable Stratum TCP Keepalive"
+    "STRATUM_KEEPALIVE": "Enable Stratum TCP Keepalive",
+    "CUSTOM_MEMPOOL": "Custom Mempool endpoint",
+    "MEMPOOL_URL": "Mempool URL"
   },
   "WARNINGS": {
     "UNSAFE_SETTINGS": "⚠️ Warning: Saving Unsafe Settings ⚠️",
