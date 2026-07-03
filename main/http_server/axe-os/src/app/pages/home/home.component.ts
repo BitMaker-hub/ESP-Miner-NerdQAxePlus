@@ -577,6 +577,9 @@ export class HomeComponent implements AfterViewChecked, OnInit, OnDestroy {
   public quickLink$: Observable<string | undefined>;
   public fallbackQuickLink$!: Observable<string | undefined>;
   public expectedHashRate$: Observable<number | undefined>;
+  // Device model + firmware version for the Gaia footer (not part of the
+  // dashboard-v2 model; sourced from the classic /api/system/info endpoint).
+  public sysInfo$ = this.systemService.getInfo();
 
   public chartOptions: any;
   private chartState: HomeChartState = new HomeChartState();

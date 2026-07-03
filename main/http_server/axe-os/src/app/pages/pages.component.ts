@@ -30,7 +30,7 @@ import { IIdentifyV2 } from '../models/IIdentifyV2';
         // items (its initial active-item detection only runs once, at init).
         this.buildMenu();
 
-        this.http.get<ISystemInfo>('/api/system/info').pipe(
+        this.http.get<IIdentifyV2>('/api/v2/identify').pipe(
             catchError(() => of(null))
         ).subscribe(info => {
             this.canEnabled = info?.can?.enabled === true;

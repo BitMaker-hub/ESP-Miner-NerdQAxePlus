@@ -17,7 +17,7 @@
         [style.left.px]="poolVerifyTooltipX" [style.top.px]="poolVerifyTooltipY"
         aria-hidden="true">{{ getPoolVerificationTooltip(1) }}</span>
   <div *ngIf="info$ | async as info; else loading">
-  <div *ngIf="!info.shutdown; else shutdown">
+  <div *ngIf="!info.system.shutdown; else shutdown">
       <!-- GAIA-ONLY top summary cards (NEROQ+ style: icon-left, colored, progress) -->
       <div class="nerd-summary-grid" *ngIf="isGaia">
 
@@ -27,7 +27,7 @@
             <span class="nerd-stat__icon"><nb-icon icon="flash-outline"></nb-icon></span>
             <span class="nerd-stat__head">{{ 'HOME.HASH_RATE' | translate }}</span>
           </div>
-          <span class="nerd-stat__value">{{ info.hashRate | number:'1.2-2' }}<span class="nerd-stat__unit">{{ 'UNITS.HASHRATE' | translate }}</span></span>
+          <span class="nerd-stat__value">{{ info.performance.hashRate | number:'1.2-2' }}<span class="nerd-stat__unit">{{ 'UNITS.HASHRATE' | translate }}</span></span>
           <ng-container *ngIf="expectedHashRate$ | async as exp">
             <span class="nerd-stat__sub nerd-stat__sub--accent">{{ exp | number:'1.0-0' }} {{ 'UNITS.HASHRATE' | translate }} {{ 'HOME.EXPECTED' | translate }}</span>
           </ng-container>
@@ -39,10 +39,10 @@
             <span class="nerd-stat__icon"><nb-icon icon="paper-plane-outline"></nb-icon></span>
             <span class="nerd-stat__head">{{ 'HOME.SHARES' | translate }}</span>
           </div>
-          <span class="nerd-stat__value">{{ (info.sharesAccepted ?? 0) | number:'1.0-0' }}</span>
+          <span class="nerd-stat__value">{{ (info.performance.sharesAccepted ?? 0) | number:'1.0-0' }}</span>
           <div class="nerd-stat__row">
-            <span class="nerd-stat__sub nerd-stat__sub--bad">{{ (info.sharesRejected ?? 0) | number:'1.0-0' }} {{ 'HOME.REJECTED' | translate }} ({{ pctOf(info.sharesRejected ?? 0, (info.sharesAccepted ?? 0) + (info.sharesRejected ?? 0)) | number:'1.2-2' }}%)</span>
-            <span class="nerd-stat__foot">{{ 'POOL_INFO.DIFF' | translate }}: {{ info.poolDifficulty | number:'1.0-0' }}</span>
+            <span class="nerd-stat__sub nerd-stat__sub--bad">{{ (info.performance.sharesRejected ?? 0) | number:'1.0-0' }} {{ 'HOME.REJECTED' | translate }} ({{ pctOf(info.performance.sharesRejected ?? 0, (info.performance.sharesAccepted ?? 0) + (info.performance.sharesRejected ?? 0)) | number:'1.2-2' }}%)</span>
+            <span class="nerd-stat__foot">{{ 'POOL_INFO.DIFF' | translate }}: {{ getPoolInfo().poolDifficulty | number:'1.0-0' }}</span>
           </div>
         </div>
 
@@ -52,8 +52,8 @@
             <span class="nerd-stat__icon"><nb-icon icon="trending-up-outline"></nb-icon></span>
             <span class="nerd-stat__head">{{ 'HOME.EFFICIENCY' | translate }}</span>
           </div>
-          <span class="nerd-stat__value">{{ info.power / (info.hashRate / 1000) | number:'1.2-2' }}<span class="nerd-stat__unit">J/Th</span></span>
-          <span class="nerd-stat__sub nerd-stat__sub--accent">{{ effLabel(info.power / (info.hashRate / 1000)) }}</span>
+          <span class="nerd-stat__value">{{ info.power.watts / (info.performance.hashRate / 1000) | number:'1.2-2' }}<span class="nerd-stat__unit">J/Th</span></span>
+          <span class="nerd-stat__sub nerd-stat__sub--accent">{{ effLabel(info.power.watts / (info.performance.hashRate / 1000)) }}</span>
         </div>
 
         <!-- 4) Best Difficulty -->
@@ -63,11 +63,11 @@
             <span class="nerd-stat__head">{{ 'PERFORMANCE.BEST_DIFFICULTY' | translate }}</span>
           </div>
           <span class="nerd-stat__value">
-            <ng-container *ngIf="splitHumanReadable(info.bestDiff | humanReadable) as bd">{{ bd.value }}<span class="nerd-stat__unit" *ngIf="bd.unit">{{ bd.unit }}</span></ng-container>
+            <ng-container *ngIf="splitHumanReadable(info.performance.bestDiff | humanReadable) as bd">{{ bd.value }}<span class="nerd-stat__unit" *ngIf="bd.unit">{{ bd.unit }}</span></ng-container>
             <span class="nerd-stat__value-tag">{{ 'HOME.ALL_TIME_BEST' | translate }}</span>
           </span>
           <span class="nerd-stat__sub">
-            <ng-container *ngIf="splitHumanReadable(info.bestSessionDiff | humanReadable) as sd">{{ sd.value }}<span *ngIf="sd.unit">&nbsp;{{ sd.unit }}</span></ng-container>
+            <ng-container *ngIf="splitHumanReadable(info.performance.bestSessionDiff | humanReadable) as sd">{{ sd.value }}<span *ngIf="sd.unit">&nbsp;{{ sd.unit }}</span></ng-container>
             {{ 'HOME.BEST_DIFF_BOOT' | translate }}
           </span>
         </div>
@@ -298,7 +298,7 @@
                   <div class="pool-summary-square__hashrate">
                     <div class="pool-summary-square__hashrate-main">
                       <div class="pool-summary-square__hashrate-value">
-                        {{ info.hashRate | number: '1.2-2' }}
+                        {{ info.performance.hashRate | number: '1.2-2' }}
                         <span class="pool-summary-square__hashrate-unit">{{ 'UNITS.HASHRATE' | translate }}</span>
                       </div>
                     </div>
@@ -306,8 +306,8 @@
                 </div>
                 <div class="pool-summary-square__row2">
                   <div class="pool-summary-square__uptime"
-                       *ngIf="info.uptimeSeconds !== undefined && info.uptimeSeconds !== null">
-                    <div class="pool-summary-square__uptime-value">{{ formatUptime(info.uptimeSeconds) }}</div>
+                       *ngIf="info.system.uptime !== undefined && info.system.uptime !== null">
+                    <div class="pool-summary-square__uptime-value">{{ formatUptime(info.system.uptime) }}</div>
                     <div class="pool-summary-square__uptime-label">{{ 'SYSTEM.UPTIME' | translate }}</div>
                   </div>
                 </div>
@@ -318,7 +318,7 @@
                   <div class="power-watt-box__inner">
                     <div class="power-watt-box__label-top">{{ 'HOME.EFFICIENCY' | translate }}</div>
                     <div class="power-watt-box__value">
-                      {{ (info.can?.fleetPower ?? 0) / (info.hashRate / 1000) | number: '1.2-2' }}<span class="unit">&nbsp;J/Th</span>
+                      {{ ($any(info.can)?.fleetPower ?? 0) / (info.performance.hashRate / 1000) | number: '1.2-2' }}<span class="unit">&nbsp;J/Th</span>
                     </div>
                   </div>
                 </div>
@@ -326,7 +326,7 @@
                   <div class="pool-summary-square__best-inner">
                     <div class="pool-summary-square__best-label">{{ 'PERFORMANCE.BEST_DIFFICULTY' | translate }}</div>
                     <div class="pool-summary-square__best-value">
-                      <ng-container *ngIf="splitHumanReadable(info.bestDiff | humanReadable) as bd">
+                      <ng-container *ngIf="splitHumanReadable(info.performance.bestDiff | humanReadable) as bd">
                         {{ bd.value }}<span class="unit" *ngIf="bd.unit">&nbsp;{{ bd.unit }}</span>
                       </ng-container>
                     </div>
@@ -337,7 +337,7 @@
                   <div class="power-watt-box__inner">
                     <div class="power-watt-box__label-top">Fleet {{ 'PERFORMANCE.POWER' | translate }}</div>
                     <div class="power-watt-box__value">
-                      {{ (info.can?.fleetPower ?? 0) | number: '1.1-1' }}<span class="unit">&nbsp;W</span>
+                      {{ ($any(info.can)?.fleetPower ?? 0) | number: '1.1-1' }}<span class="unit">&nbsp;W</span>
                     </div>
                   </div>
                 </div>
@@ -659,17 +659,17 @@
         <!-- Power -->
         <div class="nerd-panel">
           <div class="nerd-panel__title">Power</div>
-          <ng-container *ngTemplateOutlet="metricRow; context: { icon: 'flash-outline', cls: 'm-purple', label: ('PERFORMANCE.INPUT_VOLTAGE' | translate), value: (info.voltage | number:'1.1-1'), unit: 'V', raw: info.voltage, min: info.minVoltage, max: info.maxVoltage, dfmt: '1.1-1' }"></ng-container>
-          <ng-container *ngTemplateOutlet="metricRow; context: { icon: 'activity-outline', cls: 'm-blue', label: ('PERFORMANCE.INPUT_CURRENT' | translate), value: (info.currentA | number:'1.2-2'), unit: 'A', raw: info.currentA, min: (info.minCurrentA ?? 0), max: (info.maxCurrentA ?? 6), dfmt: '1.0-0' }"></ng-container>
-          <ng-container *ngTemplateOutlet="metricRow; context: { icon: 'battery-outline', cls: 'm-amber', label: ('PERFORMANCE.POWER' | translate), value: (info.power | number:'1.1-1'), unit: 'W', raw: info.power, min: (info.minPower ?? 0), max: (info.maxPower ?? info.power), dfmt: '1.0-0' }"></ng-container>
+          <ng-container *ngTemplateOutlet="metricRow; context: { icon: 'flash-outline', cls: 'm-purple', label: ('PERFORMANCE.INPUT_VOLTAGE' | translate), value: (info.power.voltage | number:'1.1-1'), unit: 'V', raw: info.power.voltage, min: info.power.voltageMin, max: info.power.voltageMax, dfmt: '1.1-1' }"></ng-container>
+          <ng-container *ngTemplateOutlet="metricRow; context: { icon: 'activity-outline', cls: 'm-blue', label: ('PERFORMANCE.INPUT_CURRENT' | translate), value: (info.power.currentA | number:'1.2-2'), unit: 'A', raw: info.power.currentA, min: (info.power.currentAMin ?? 0), max: (info.power.currentAMax ?? 6), dfmt: '1.0-0' }"></ng-container>
+          <ng-container *ngTemplateOutlet="metricRow; context: { icon: 'battery-outline', cls: 'm-amber', label: ('PERFORMANCE.POWER' | translate), value: (info.power.watts | number:'1.1-1'), unit: 'W', raw: info.power.watts, min: (info.power.min ?? 0), max: (info.power.max ?? info.power.watts), dfmt: '1.0-0' }"></ng-container>
         </div>
 
         <!-- Heat -->
         <div class="nerd-panel">
           <div class="nerd-panel__title">Heat</div>
           <ng-container *ngTemplateOutlet="metricRow; context: { icon: 'thermometer-outline', cls: 'm-purple', label: ('PERFORMANCE.ASIC_TEMP' | translate), value: (maxAsicTemp(info) | number:'1.1-1'), unit: '°C', raw: maxAsicTemp(info), min: 0, max: shutdownTempC(info), dfmt: '1.0-0' }"></ng-container>
-          <ng-container *ngIf="info.vrTemp > 0" [ngTemplateOutlet]="metricRow" [ngTemplateOutletContext]="{ icon: 'thermometer-outline', cls: 'm-purple', label: ('PERFORMANCE.VR_TEMP' | translate), value: (info.vrTemp | number:'1.1-1'), unit: '°C', raw: info.vrTemp, min: 0, max: 100, dfmt: '1.0-0' }"></ng-container>
-          <ng-container *ngTemplateOutlet="metricRow; context: { fan: true, cls: 'm-amber', label: 'Fan Speed', value: ((info.fanspeed ?? 0) | number:'1.0-0'), unit: '%', raw: (info.fanspeed ?? 0), min: 0, max: 100, dfmt: '1.0-0' }"></ng-container>
+          <ng-container *ngIf="info.thermal.vrTemp > 0" [ngTemplateOutlet]="metricRow" [ngTemplateOutletContext]="{ icon: 'thermometer-outline', cls: 'm-purple', label: ('PERFORMANCE.VR_TEMP' | translate), value: (info.thermal.vrTemp | number:'1.1-1'), unit: '°C', raw: info.thermal.vrTemp, min: 0, max: 100, dfmt: '1.0-0' }"></ng-container>
+          <ng-container *ngTemplateOutlet="metricRow; context: { fan: true, cls: 'm-amber', label: 'Fan Speed', value: ((info.thermal.fans?.[0]?.speed ?? 0) | number:'1.0-0'), unit: '%', raw: (info.thermal.fans?.[0]?.speed ?? 0), min: 0, max: 100, dfmt: '1.0-0' }"></ng-container>
         </div>
 
         <!-- Performance -->
@@ -681,8 +681,8 @@
               <nb-icon icon="edit-2-outline"></nb-icon>
             </a>
           </div>
-          <ng-container *ngTemplateOutlet="metricRow; context: { icon: 'flash-outline', cls: 'm-purple', label: ('PERFORMANCE.ASIC_VOLTAGE_MEASURED' | translate), value: (info.coreVoltageActual | number:'1.2-2'), unit: 'V', raw: info.coreVoltageActual, min: 0.8, max: asicCoreVoltageMax(info), dfmt: '1.2-2' }"></ng-container>
-          <ng-container *ngTemplateOutlet="metricRow; context: { icon: 'activity-outline', cls: 'm-cyan', label: ('PERFORMANCE.ASIC_FREQUENCY' | translate), value: (info.frequency | number:'1.0-0'), unit: 'MHz', raw: info.frequency, min: 0, max: asicFreqMax(info), dfmt: '1.0-0' }"></ng-container>
+          <ng-container *ngTemplateOutlet="metricRow; context: { icon: 'flash-outline', cls: 'm-purple', label: ('PERFORMANCE.ASIC_VOLTAGE_MEASURED' | translate), value: (info.power.coreVoltageActual | number:'1.2-2'), unit: 'V', raw: info.power.coreVoltageActual, min: 0.8, max: asicCoreVoltageMax(info), dfmt: '1.2-2' }"></ng-container>
+          <ng-container *ngTemplateOutlet="metricRow; context: { icon: 'activity-outline', cls: 'm-cyan', label: ('PERFORMANCE.ASIC_FREQUENCY' | translate), value: (info.performance.frequency | number:'1.0-0'), unit: 'MHz', raw: info.performance.frequency, min: 0, max: asicFreqMax(info), dfmt: '1.0-0' }"></ng-container>
         </div>
 
         <!-- Uptime / Connection -->
@@ -692,15 +692,15 @@
             <div class="nerd-uptime__item">
               <span class="nerd-uptime__icon is-ok"><nb-icon icon="checkmark-circle-2-outline"></nb-icon></span>
               <span class="nerd-uptime__body">
-                <span class="nerd-uptime__value">{{ formatUptime(info.uptimeSeconds) }}</span>
+                <span class="nerd-uptime__value">{{ formatUptime(info.system.uptime) }}</span>
                 <span class="nerd-uptime__label">{{ 'SYSTEM.UPTIME' | translate }}</span>
               </span>
             </div>
-            <div class="nerd-uptime__item">
+            <div class="nerd-uptime__item" *ngIf="sysInfo$ | async as sys">
               <span class="nerd-uptime__icon is-info"><nb-icon icon="wifi-outline"></nb-icon></span>
               <span class="nerd-uptime__body">
-                <span class="nerd-uptime__value">{{ info.wifiStatus || 'Connected' }}</span>
-                <span class="nerd-uptime__label">{{ info.ssid }} · {{ info.wifiRSSI }} dBm</span>
+                <span class="nerd-uptime__value">{{ sys.wifiStatus || 'Connected' }}</span>
+                <span class="nerd-uptime__label">{{ sys.ssid }} · {{ sys.wifiRSSI }} dBm</span>
               </span>
             </div>
           </div>
@@ -979,7 +979,7 @@
 
       <!-- GAIA footer: version text + Nerd*OS logo bottom-right -->
       <div class="nerd-footer" *ngIf="isGaia">
-        <span class="nerd-footer__text">{{ info.deviceModel }} · MinerOS {{ info.version }}</span>
+        <span class="nerd-footer__text" *ngIf="sysInfo$ | async as sys">{{ sys.deviceModel }} · MinerOS {{ sys.version }}</span>
         <div class="nerdos-logo-wrap__inner nerd-footer__logo" [style.--nerdos-logo-color]="nerdOsLogoColor">
           <div class="nerdos-logo" aria-label="Nerd*OS"></div>
         </div>
