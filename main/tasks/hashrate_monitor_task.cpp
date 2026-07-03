@@ -13,6 +13,11 @@ static const char *HR_TAG = "hashrate_monitor";
 // REGISTER_TOTAL_COUNT = 0x8C.
 static constexpr uint8_t REG_NONCE_TOTAL_CNT = 0x8C;
 
+// [PROBE] BM1373 extended-register / core-distribution diagnostics. Disabled
+// for now — findings are saved in BM1373_registros_explorados.md. Set to 1
+// (here AND in asic_result_task.cpp) to re-enable the probe reads + logging.
+#define PROBE_ENABLED 0
+
 HashrateMonitor::HashrateMonitor()
 {}
 
@@ -111,6 +116,7 @@ void HashrateMonitor::taskLoop()
         // read the counters
         m_asic->readCounter(REG_NONCE_TOTAL_CNT);
 
+#if PROBE_ENABLED
         // [PROBE] Also read extended register addresses to discover if BM1373
         // has additional domain counters beyond the legacy 0x88-0x8C range.
         // Responses for these get logged in asic_result_task.cpp via the probe
@@ -126,6 +132,7 @@ void HashrateMonitor::taskLoop()
             m_asic->readCounter(probe_regs[i]);
             vTaskDelay(pdMS_TO_TICKS(10));
         }
+#endif // PROBE_ENABLED
 
         // responses normally take 20-30ms, so this is safe
         vTaskDelay(pdMS_TO_TICKS(500));

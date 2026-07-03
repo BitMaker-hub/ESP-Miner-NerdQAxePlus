@@ -23,6 +23,12 @@ static void countDuplicateHWNonces() {
     duplicateHWNonces++;
 }
 
+// [PROBE] BM1373 core-distribution / extended-register diagnostics. Disabled
+// for now — findings are saved in BM1373_registros_explorados.md. Set to 1
+// (here AND in hashrate_monitor_task.cpp) to re-enable the probe.
+#define PROBE_ENABLED 0
+
+#if PROBE_ENABLED
 // [PROBE] Per-chip histogram of nonces by core_id_7b and small_core_id.
 // Tracks distribution of nonce production across the chip's internal cores
 // to discover how many domains/cores are actually active on BM1373.
@@ -110,6 +116,7 @@ static void probe_dump_histogram_if_due(void)
     // NOTE: histograms are NOT reset — keep accumulating so distribution
     // converges with more samples. Reboot to clear.
 }
+#endif // PROBE_ENABLED
 
 uint64_t getDuplicateHWNonces() {
     return duplicateHWNonces;
@@ -160,13 +167,16 @@ void ASIC_result_task(void *pvParameters)
                     // cause m_prevCounter to be overwritten between cycles and
                     // produce wildly wrong delta calculations.
                     HASHRATE_MONITOR.onRegisterReply(asic_result.asic_nr, asic_result.data);
+#if PROBE_ENABLED
                     ESP_LOGI(TAG, "[PROBE] reg=0x%02X asic=%d value=%lu (0x%08lX)",
                              (unsigned int) asic_result.reg,
                              (int) asic_result.asic_nr,
                              (unsigned long) asic_result.data,
                              (unsigned long) asic_result.data);
+#endif
                     break;
                 }
+#if PROBE_ENABLED
                 // [PROBE] Log responses from extended register addresses to find
                 // hidden domain counters for BM1373. If any of these return a
                 // counter-like value that grows over time, the chip is exposing
@@ -192,12 +202,15 @@ void ASIC_result_task(void *pvParameters)
                              (unsigned long) asic_result.data);
                     break;
                 }
+#endif // PROBE_ENABLED
                 default: {
+#if PROBE_ENABLED
                     // log anything else unexpected, with reduced detail
                     ESP_LOGI(TAG, "[PROBE-UNK] reg=0x%02X asic=%d value=0x%08lX",
                              (unsigned int) asic_result.reg,
                              (int) asic_result.asic_nr,
                              (unsigned long) asic_result.data);
+#endif
                     break;
                 }
             }
@@ -206,6 +219,7 @@ void ASIC_result_task(void *pvParameters)
 
         uint8_t asic_job_id = asic_result.job_id;
 
+#if PROBE_ENABLED
         // [PROBE] Track every received nonce in the histogram so we know which
         // physical cores of the chip are actually producing nonces. This runs
         // before the job-clone lookup so we also count "orphan" nonces.
@@ -213,6 +227,7 @@ void ASIC_result_task(void *pvParameters)
                         asic_result.core_id_7b,
                         asic_result.small_core_id);
         probe_dump_histogram_if_due();
+#endif
 
         bm_job *job = asicJobs.getClone(asic_job_id);
         if (!job) {
