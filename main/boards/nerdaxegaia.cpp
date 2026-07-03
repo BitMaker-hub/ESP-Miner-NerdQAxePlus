@@ -28,12 +28,13 @@ NerdaxeGaia::NerdaxeGaia() : NerdAxe() {
     m_asicCount = 1;
 
     m_asicJobIntervalMs = 1500;
-    m_asicFrequencies = {300, 350, 400, 425, 450, 475, 500};
-    m_asicVoltages = {900, 950, 1000, 1050, 1100, 1150, 1200};
-    m_defaultAsicFrequency = m_asicFrequency = 400;
-    m_defaultAsicVoltageMillis = m_asicVoltageMillis = 1000;
+    m_asicFrequencies = {300, 320, 340, 360, 380, 400, 420, 440};
+    m_asicVoltages = {900, 920, 940, 960, 980, 1000, 1020, 1040};
+    m_defaultAsicFrequency = m_asicFrequency = 360;
+    m_defaultAsicVoltageMillis = m_asicVoltageMillis = 960;
+    m_absMinAsicVoltageMillis = 800;    // hard floor for core voltage (mV)
+    m_absMaxAsicVoltageMillis = 1300;   // hard ceiling for core voltage (mV)
     // m_absMaxAsicFrequency = 750;
-    // m_absMaxAsicVoltageMillis = 1300;
     m_initVoltageMillis = 1000;
     m_fanInvertPolarity = false;
     m_fanPerc = 100;
@@ -45,7 +46,7 @@ NerdaxeGaia::NerdaxeGaia() : NerdAxe() {
     m_pidSettings[0].i =   10; // 0.1
     m_pidSettings[0].d = 1000; // 10.00
 
-    m_maxPin = 25.0;
+    m_maxPin = 40.0;   // web power-gauge reference ceiling (W) — display only, not a runtime cutoff
     m_minPin = 5.0;
     m_maxVin = 13.2;   // 12V input rail (+10%)
     m_minVin = 10.8;   // 12V input rail (-10%)
@@ -59,6 +60,12 @@ NerdaxeGaia::NerdaxeGaia() : NerdAxe() {
 #ifdef NERDAXEGAIA
     m_theme = new ThemeNerdaxegaia();
 #endif
+
+    // Default web dashboard theme (Nebular) for this board = the Gaia theme.
+    // Served to the browser via the API as `defaultTheme`; the web applies it
+    // when there is no valid theme saved in localStorage. (This is the web
+    // theme, separate from m_theme above, which is the on-device LCD theme.)
+    m_defaultTheme = "gaia";
 
     m_swarmColorName = "#e7cf00"; // yellow
 
@@ -102,6 +109,12 @@ bool NerdaxeGaia::initBoard()
     // calls this; the shared 5V defaults stay for the NerdAxeGamma. Must run
     // BEFORE TPS546_init() so the correct limits are programmed from the start.
     TPS546_set_vin_config(/*on*/ 10.5f, /*off*/ 9.5f, /*uv_warn*/ 10.5f, /*ov_fault*/ 14.0f);
+
+    // Raise the output over-current protection: the shared driver defaults to
+    // 25A warn / 30A fault, which trips around 440MHz @ 1V (~31A). The Gaia's
+    // TPS546D24A is rated 40A, so use a conservative 28A warn / 33A fault.
+    // Board-specific; must run BEFORE TPS546_init().
+    TPS546_set_iout_config(/*warn*/ 28.0f, /*fault*/ 33.0f);
 
     //Init voltage controller
     if (TPS546_init() != ESP_OK) {

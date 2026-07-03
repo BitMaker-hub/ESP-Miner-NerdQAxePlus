@@ -537,6 +537,19 @@ void TPS546_set_vin_config(float vin_on, float vin_off, float uv_warn, float ov_
     s_vin_ov_fault = ov_fault;
 }
 
+/* IOUT over-current warn/fault default to the header macros (25A/30A). A board
+ * can raise them (e.g. the NerdAxeGaia, whose TPS546D24A is rated 40A) by
+ * calling TPS546_set_iout_config() BEFORE TPS546_init(). Shared driver ->
+ * NerdAxe / NerdAxeGamma keep the conservative defaults. */
+static float s_iout_oc_warn  = TPS546_INIT_IOUT_OC_WARN_LIMIT;
+static float s_iout_oc_fault = TPS546_INIT_IOUT_OC_FAULT_LIMIT;
+
+void TPS546_set_iout_config(float oc_warn, float oc_fault)
+{
+    s_iout_oc_warn = oc_warn;
+    s_iout_oc_fault = oc_fault;
+}
+
 /**
  * @brief Set all the relevant config registers for normal operation
 */
@@ -590,8 +603,8 @@ void TPS546_write_entire_config(void)
 
     /* iout current */
     ESP_LOGI(TAG, "Setting IOUT");
-    smb_write_word(PMBUS_IOUT_OC_WARN_LIMIT, float_2_slinear11(TPS546_INIT_IOUT_OC_WARN_LIMIT));
-    smb_write_word(PMBUS_IOUT_OC_FAULT_LIMIT, float_2_slinear11(TPS546_INIT_IOUT_OC_FAULT_LIMIT));
+    smb_write_word(PMBUS_IOUT_OC_WARN_LIMIT, float_2_slinear11(s_iout_oc_warn));
+    smb_write_word(PMBUS_IOUT_OC_FAULT_LIMIT, float_2_slinear11(s_iout_oc_fault));
     smb_write_byte(PMBUS_IOUT_OC_FAULT_RESPONSE, TPS546_INIT_IOUT_OC_FAULT_RESPONSE);
 
     /* temperature */
