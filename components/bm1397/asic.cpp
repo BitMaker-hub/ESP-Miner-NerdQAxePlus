@@ -393,6 +393,7 @@ bool Asic::processWork(task_result *result)
     // [PROBE] Decode core identification from the nonce for distribution analysis.
     // BM1370 docs: bits 25-31 of the nonce encode the producing core (7-bit core_id).
     // For BM1373 with potentially more cores, we want to see how high core_id_7b goes.
+    uint32_t nonce_h     = __bswap32(asic_result.nonce);
     uint8_t core_id_7b   = (uint8_t)((nonce_h >> 25) & 0x7F);
     uint8_t small_core_id = asic_result.job_id & 0x0F;
 
