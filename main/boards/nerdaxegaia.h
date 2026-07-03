@@ -9,6 +9,10 @@ class NerdaxeGaia : public NerdAxe {
   protected:
     int m_initVoltageMillis;
 
+    // LDO enable line (GPIO12) — power sequencing helpers
+    void LDO_enable();
+    void LDO_disable();
+
   public:
     NerdaxeGaia();
 

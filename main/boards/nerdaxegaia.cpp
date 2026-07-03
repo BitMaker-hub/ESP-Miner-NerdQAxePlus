@@ -11,6 +11,7 @@
 #include "drivers/nerdaxe/TPS546.h"
 
 #define BM1373_RST_PIN GPIO_NUM_1
+#define LDO_EN_PIN GPIO_NUM_12   // LDO enable (active-high) — new Gaia board
 #define GAIA_POWER_OFFSET 5
 
 bool tempinit_gaia = false;
@@ -97,19 +98,45 @@ bool NerdaxeGaia::initBoard()
     gpio_set_direction(BM1373_RST_PIN, GPIO_MODE_OUTPUT);
     gpio_set_level(BM1373_RST_PIN, 0);
 
+    // LDO enable line: configured as output and kept OFF until the ASIC
+    // power-up sequence in initAsics() brings it up.
+    gpio_pad_select_gpio(LDO_EN_PIN);
+    gpio_set_direction(LDO_EN_PIN, GPIO_MODE_OUTPUT);
+    gpio_set_level(LDO_EN_PIN, 0);
+
     return true;
 }
 
 void NerdaxeGaia::shutdown() {
     setVoltage(0.0);
 
+    // let the core rail collapse before cutting the LDO
+    vTaskDelay(pdMS_TO_TICKS(500));
+
+    LDO_disable();
+
+    vTaskDelay(pdMS_TO_TICKS(500));
+
     Board::shutdown();
+}
+
+void NerdaxeGaia::LDO_enable() {
+    ESP_LOGI(TAG, "Enable LDO");
+    gpio_set_level(LDO_EN_PIN, 1);
+}
+
+void NerdaxeGaia::LDO_disable() {
+    ESP_LOGI(TAG, "Disable LDO");
+    gpio_set_level(LDO_EN_PIN, 0);
 }
 
 bool NerdaxeGaia::initAsics() {
 
-    // set output voltage
+    // core buck off + LDO off for a clean power-up state.
+    // NOTE: selfTest() (inherited from NerdAxe) powers the chip through this
+    // same initAsics() path, so the LDO is enabled during the chip test too.
     setVoltage(0.0);
+    LDO_disable();
 
     // wait 500ms
     vTaskDelay(pdMS_TO_TICKS(500));
@@ -119,6 +146,12 @@ bool NerdaxeGaia::initAsics() {
 
     // wait 250ms
     vTaskDelay(pdMS_TO_TICKS(250));
+
+    // enable the LDO before ramping the core voltage
+    LDO_enable();
+
+    // wait 100ms
+    vTaskDelay(pdMS_TO_TICKS(100));
 
     // set the init voltage
     // use the higher voltage for initialization
