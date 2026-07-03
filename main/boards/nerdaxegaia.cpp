@@ -47,8 +47,8 @@ NerdaxeGaia::NerdaxeGaia() : NerdAxe() {
 
     m_maxPin = 25.0;
     m_minPin = 5.0;
-    m_maxVin = 5.5;
-    m_minVin = 4.5;
+    m_maxVin = 13.2;   // 12V input rail (+10%)
+    m_minVin = 10.8;   // 12V input rail (-10%)
     m_minCurrentA = 0.0f;
     m_maxCurrentA = 6.0f;
 
@@ -85,6 +85,12 @@ bool NerdaxeGaia::initBoard()
     EMC2101_set_ideality_factor(EMC2101_IDEALITY_1_0319);
     EMC2101_set_beta_compensation(EMC2101_BETA_11);
     setFanSpeed(m_fanPerc);
+
+    // 12V input rail: widen the TPS546 VIN thresholds so the input over-voltage
+    // fault (5V default = 6V) doesn't trip at 12V. Board-aware — only the Gaia
+    // calls this; the shared 5V defaults stay for the NerdAxeGamma. Must run
+    // BEFORE TPS546_init() so the correct limits are programmed from the start.
+    TPS546_set_vin_config(/*on*/ 10.5f, /*off*/ 9.5f, /*uv_warn*/ 10.5f, /*ov_fault*/ 14.0f);
 
     //Init voltage controller
     if (TPS546_init() != ESP_OK) {

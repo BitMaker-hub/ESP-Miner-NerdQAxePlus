@@ -72,6 +72,10 @@
 
 
 /* public functions */
+// Optional per-board override of the VIN thresholds (V). Call BEFORE TPS546_init()
+// so they're programmed from the start (e.g. the 12V-fed NerdAxeGaia). Boards that
+// don't call it keep the 5V TPS546_INIT_VIN_* defaults.
+void TPS546_set_vin_config(float vin_on, float vin_off, float uv_warn, float ov_fault);
 int TPS546_init(void);
 void TPS546_read_mfr_info(uint8_t *);
 void TPS546_set_mfr_info(void);
