@@ -27,6 +27,7 @@ static const char *TAG = "TPS546";
 static uint8_t DEVICE_ID1[] = {0x54, 0x49, 0x54, 0x6B, 0x24, 0x41}; // TPS546D24A
 static uint8_t DEVICE_ID2[] = {0x54, 0x49, 0x54, 0x6D, 0x24, 0x41}; // TPS546D24A
 static uint8_t DEVICE_ID3[] = {0x54, 0x49, 0x54, 0x6D, 0x24, 0x62}; // TPS546D24S
+static uint8_t DEVICE_ID4[] = {0x00, 0x00, 0xc8, 0x42, 0x7c, 0x06}; // TPS546 variant (observed on NerdAxeGaia)
 static uint8_t MFR_ID[] = {'B', 'A', 'X'};
 static uint8_t MFR_MODEL[] = {'H', 'E', 'X'};
 static uint8_t MFR_REVISION[] = {0x00, 0x00, 0x01};
@@ -396,7 +397,7 @@ int TPS546_init(void)
     smb_read_block(PMBUS_IC_DEVICE_ID, data, 6); //the DEVICE_ID block first byte is the length.
     ESP_LOGI(TAG, "Device ID: %02x %02x %02x %02x %02x %02x", data[0], data[1], data[2], data[3], data[4], data[5]);
     /* There's 3 different known device IDs observed so far */
-    if ( (memcmp(data, DEVICE_ID1, 6) != 0) && (memcmp(data, DEVICE_ID2, 6) != 0) && (memcmp(data, DEVICE_ID3, 6) != 0))
+    if ( (memcmp(data, DEVICE_ID1, 6) != 0) && (memcmp(data, DEVICE_ID2, 6) != 0) && (memcmp(data, DEVICE_ID3, 6) != 0) && (memcmp(data, DEVICE_ID4, 6) != 0))
     {
         ESP_LOGE(TAG, "Cannot find TPS546 regulator - Device ID mismatch");
         return -1;
@@ -566,7 +567,7 @@ void TPS546_write_entire_config(void)
     smb_write_word(PMBUS_VOUT_UV_WARN_LIMIT, float_2_ulinear16(TPS546_INIT_VOUT_UV_WARN_LIMIT));
     ESP_LOGI(TAG, "VOUT_UV_FAULT_LIMIT: %.2f", TPS546_INIT_VOUT_UV_FAULT_LIMIT);
     smb_write_word(PMBUS_VOUT_UV_FAULT_LIMIT, float_2_ulinear16(TPS546_INIT_VOUT_UV_FAULT_LIMIT));
-    ESP_LOGI(TAG, "VOUT_MIN: %d", TPS546_INIT_VOUT_MIN);
+    ESP_LOGI(TAG, "VOUT_MIN: %.2f", TPS546_INIT_VOUT_MIN);
     smb_write_word(PMBUS_VOUT_MIN, float_2_ulinear16(TPS546_INIT_VOUT_MIN));
 
     /* iout current */

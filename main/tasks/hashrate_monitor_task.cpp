@@ -6,7 +6,12 @@
 #include "utils.h"
 
 static const char *HR_TAG = "hashrate_monitor";
-static constexpr uint8_t REG_NONCE_TOTAL_CNT = 0x90;
+// [FIX] Changed from 0x90 to 0x8C to read the chip-wide total nonce counter.
+// 0x90 returns only one internal domain's counter (the chip has multiple domains:
+// BM1370 has 4 domains, BM1373 has 8 domains). Reading 0x8C gives the TRUE total
+// across all internal domains. Confirmed by bitaxe ESP-Miner documentation:
+// REGISTER_TOTAL_COUNT = 0x8C.
+static constexpr uint8_t REG_NONCE_TOTAL_CNT = 0x8C;
 
 HashrateMonitor::HashrateMonitor()
 {}
@@ -105,6 +110,22 @@ void HashrateMonitor::taskLoop()
 
         // read the counters
         m_asic->readCounter(REG_NONCE_TOTAL_CNT);
+
+        // [PROBE] Also read extended register addresses to discover if BM1373
+        // has additional domain counters beyond the legacy 0x88-0x8C range.
+        // Responses for these get logged in asic_result_task.cpp via the probe
+        // case branches. Small delay between reads so the chip can respond.
+        static const uint8_t probe_regs[] = {
+            0x4C,                      // ERROR_COUNT candidate per bitaxe docs
+            0x88, 0x89, 0x8A, 0x8B,   // legacy domain counters (BM1370 has 4)
+            0x8D, 0x8E, 0x8F,          // candidates for extended domain counters
+            0x90, 0x91, 0x92, 0x93,    // 0x90 returns non-zero on BM1373
+            0x94, 0x95,                // extended candidates
+        };
+        for (size_t i = 0; i < sizeof(probe_regs); i++) {
+            m_asic->readCounter(probe_regs[i]);
+            vTaskDelay(pdMS_TO_TICKS(10));
+        }
 
         // responses normally take 20-30ms, so this is safe
         vTaskDelay(pdMS_TO_TICKS(500));
