@@ -72,6 +72,17 @@ bool NerdaxeGaia::initBoard()
 {
     Board::initBoard();
 
+    // Bring up the LDO FIRST. On the Gaia the TPS546 takes its logic supply
+    // from the LDO rail, so it must be powered before ANY TPS546 access
+    // (set_vin_config / init below) — otherwise the regulator answers with a
+    // garbage device-ID, init fails, and initBoard bails out before the RESET
+    // and LDO pins are even configured. Enable it and keep it on continuously
+    // (this is exactly what the known-good "GPIO12 jumpered high" does).
+    gpio_pad_select_gpio(LDO_EN_PIN);
+    gpio_set_direction(LDO_EN_PIN, GPIO_MODE_OUTPUT);
+    LDO_enable();
+    vTaskDelay(pdMS_TO_TICKS(100));   // let the LDO rail settle before I2C
+
     ADC_init();
     SERIAL_init();
 
@@ -104,11 +115,7 @@ bool NerdaxeGaia::initBoard()
     gpio_set_direction(BM1373_RST_PIN, GPIO_MODE_OUTPUT);
     gpio_set_level(BM1373_RST_PIN, 0);
 
-    // LDO enable line: configured as output and kept OFF until the ASIC
-    // power-up sequence in initAsics() brings it up.
-    gpio_pad_select_gpio(LDO_EN_PIN);
-    gpio_set_direction(LDO_EN_PIN, GPIO_MODE_OUTPUT);
-    gpio_set_level(LDO_EN_PIN, 0);
+    // (LDO is already enabled at the top of initBoard, before the TPS546.)
 
     return true;
 }
@@ -138,11 +145,12 @@ void NerdaxeGaia::LDO_disable() {
 
 bool NerdaxeGaia::initAsics() {
 
-    // core buck off + LDO off for a clean power-up state.
-    // NOTE: selfTest() (inherited from NerdAxe) powers the chip through this
-    // same initAsics() path, so the LDO is enabled during the chip test too.
+    // Core buck off, but keep the LDO ON (already enabled in initBoard and
+    // never cycled): the chip runs on the LDO alone during the self-test, so
+    // cutting it here — as the old sequence did — left the chip unpowered and
+    // it failed to enumerate. This matches the known-good jumpered-high case.
     setVoltage(0.0);
-    LDO_disable();
+    LDO_enable();   // re-assert (no-op if already high); never disable
 
     // wait 500ms
     vTaskDelay(pdMS_TO_TICKS(500));
@@ -153,10 +161,7 @@ bool NerdaxeGaia::initAsics() {
     // wait 250ms
     vTaskDelay(pdMS_TO_TICKS(250));
 
-    // enable the LDO before ramping the core voltage
-    LDO_enable();
-
-    // wait 100ms
+    // LDO already on and settled; give the reset a moment before the core ramp
     vTaskDelay(pdMS_TO_TICKS(100));
 
     // set the init voltage
