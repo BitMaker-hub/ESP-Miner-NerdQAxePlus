@@ -28,10 +28,10 @@ NerdaxeGaia::NerdaxeGaia() : NerdAxe() {
     m_asicCount = 1;
 
     m_asicJobIntervalMs = 1500;
-    m_asicFrequencies = {300, 320, 340, 360, 380, 400, 420, 440};
+    m_asicFrequencies = {300, 320, 340, 350, 360, 380, 400, 420, 440};
     m_asicVoltages = {900, 920, 940, 960, 980, 1000, 1020, 1040};
-    m_defaultAsicFrequency = m_asicFrequency = 360;
-    m_defaultAsicVoltageMillis = m_asicVoltageMillis = 960;
+    m_defaultAsicFrequency = m_asicFrequency = 350;
+    m_defaultAsicVoltageMillis = m_asicVoltageMillis = 940;
     m_absMinAsicVoltageMillis = 800;    // hard floor for core voltage (mV)
     m_absMaxAsicVoltageMillis = 1300;   // hard ceiling for core voltage (mV)
     // m_absMaxAsicFrequency = 750;
