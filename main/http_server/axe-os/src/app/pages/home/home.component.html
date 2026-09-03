@@ -659,7 +659,7 @@
         <!-- Power -->
         <div class="nerd-panel">
           <div class="nerd-panel__title">Power</div>
-          <ng-container *ngTemplateOutlet="metricRow; context: { icon: 'flash-outline', cls: 'm-purple', label: ('PERFORMANCE.INPUT_VOLTAGE' | translate), value: (info.power.voltage | number:'1.1-1'), unit: 'V', raw: info.power.voltage, min: info.power.voltageMin, max: info.power.voltageMax, dfmt: '1.1-1' }"></ng-container>
+          <ng-container *ngTemplateOutlet="metricRow; context: { icon: 'flash-outline', cls: 'm-amber', label: ('PERFORMANCE.INPUT_VOLTAGE' | translate), value: (info.power.voltage | number:'1.1-1'), unit: 'V', raw: info.power.voltage, min: info.power.voltageMin, max: info.power.voltageMax, dfmt: '1.1-1' }"></ng-container>
           <ng-container *ngTemplateOutlet="metricRow; context: { icon: 'activity-outline', cls: 'm-blue', label: ('PERFORMANCE.INPUT_CURRENT' | translate), value: (info.power.currentA | number:'1.2-2'), unit: 'A', raw: info.power.currentA, min: (info.power.currentAMin ?? 0), max: (info.power.currentAMax ?? 6), dfmt: '1.0-0' }"></ng-container>
           <ng-container *ngTemplateOutlet="metricRow; context: { icon: 'battery-outline', cls: 'm-amber', label: ('PERFORMANCE.POWER' | translate), value: (info.power.watts | number:'1.1-1'), unit: 'W', raw: info.power.watts, min: (info.power.min ?? 0), max: (info.power.max ?? info.power.watts), dfmt: '1.0-0' }"></ng-container>
         </div>
@@ -667,8 +667,8 @@
         <!-- Heat -->
         <div class="nerd-panel">
           <div class="nerd-panel__title">Heat</div>
-          <ng-container *ngTemplateOutlet="metricRow; context: { icon: 'thermometer-outline', cls: 'm-purple', label: ('PERFORMANCE.ASIC_TEMP' | translate), value: (maxAsicTemp(info) | number:'1.1-1'), unit: '°C', raw: maxAsicTemp(info), min: 0, max: shutdownTempC(info), dfmt: '1.0-0' }"></ng-container>
-          <ng-container *ngIf="info.thermal.vrTemp > 0" [ngTemplateOutlet]="metricRow" [ngTemplateOutletContext]="{ icon: 'thermometer-outline', cls: 'm-purple', label: ('PERFORMANCE.VR_TEMP' | translate), value: (info.thermal.vrTemp | number:'1.1-1'), unit: '°C', raw: info.thermal.vrTemp, min: 0, max: 100, dfmt: '1.0-0' }"></ng-container>
+          <ng-container *ngTemplateOutlet="metricRow; context: { icon: 'thermometer-outline', cls: 'm-red', label: ('PERFORMANCE.ASIC_TEMP' | translate), value: (maxAsicTemp(info) | number:'1.1-1'), unit: '°C', raw: maxAsicTemp(info), min: 0, max: shutdownTempC(info), dfmt: '1.0-0' }"></ng-container>
+          <ng-container *ngIf="info.thermal.vrTemp > 0" [ngTemplateOutlet]="metricRow" [ngTemplateOutletContext]="{ icon: 'thermometer-outline', cls: 'm-cyan', label: ('PERFORMANCE.VR_TEMP' | translate), value: (info.thermal.vrTemp | number:'1.1-1'), unit: '°C', raw: info.thermal.vrTemp, min: 0, max: 100, dfmt: '1.0-0' }"></ng-container>
           <ng-container *ngTemplateOutlet="metricRow; context: { fan: true, cls: 'm-amber', label: 'Fan Speed', value: ((info.thermal.fans?.[0]?.speed ?? 0) | number:'1.0-0'), unit: '%', raw: (info.thermal.fans?.[0]?.speed ?? 0), min: 0, max: 100, dfmt: '1.0-0' }"></ng-container>
         </div>
 
@@ -681,7 +681,7 @@
               <nb-icon icon="edit-2-outline"></nb-icon>
             </a>
           </div>
-          <ng-container *ngTemplateOutlet="metricRow; context: { icon: 'flash-outline', cls: 'm-purple', label: ('PERFORMANCE.ASIC_VOLTAGE_MEASURED' | translate), value: (info.power.coreVoltageActual | number:'1.2-2'), unit: 'V', raw: info.power.coreVoltageActual, min: 0.8, max: asicCoreVoltageMax(info), dfmt: '1.2-2' }"></ng-container>
+          <ng-container *ngTemplateOutlet="metricRow; context: { icon: 'flash-outline', cls: 'm-amber', label: ('PERFORMANCE.ASIC_VOLTAGE_MEASURED' | translate), value: (info.power.coreVoltageActual | number:'1.2-2'), unit: 'V', raw: info.power.coreVoltageActual, min: 0.8, max: asicCoreVoltageMax(info), dfmt: '1.2-2' }"></ng-container>
           <ng-container *ngTemplateOutlet="metricRow; context: { icon: 'activity-outline', cls: 'm-cyan', label: ('PERFORMANCE.ASIC_FREQUENCY' | translate), value: (info.performance.frequency | number:'1.0-0'), unit: 'MHz', raw: info.performance.frequency, min: 0, max: asicFreqMax(info), dfmt: '1.0-0' }"></ng-container>
         </div>
 

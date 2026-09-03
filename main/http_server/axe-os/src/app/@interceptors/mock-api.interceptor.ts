@@ -51,10 +51,10 @@ function buildHistory() {
     timestamps.push(i * stepMs); // relativo a timestampBase
     const wobble = Math.sin(i / 6) * 35 + (Math.random() - 0.5) * 25;
     // El gráfico hace hashrate × 1e9 / 100  → el firmware manda GH/s × 100 (centi-GH/s)
-    hashrate_1m.push(Math.round((1100 + wobble) * 100));
-    hashrate_10m.push(Math.round((1085 + wobble * 0.6) * 100));
-    hashrate_1h.push(Math.round((1060 + wobble * 0.3) * 100));
-    hashrate_1d.push(Math.round((1030 + wobble * 0.15) * 100));
+    hashrate_1m.push(Math.round((2522 + wobble) * 100));
+    hashrate_10m.push(Math.round((2500 + wobble * 0.6) * 100));
+    hashrate_1h.push(Math.round((2470 + wobble * 0.3) * 100));
+    hashrate_1d.push(Math.round((2440 + wobble * 0.15) * 100));
     // El gráfico hace temp / 100  → el firmware manda °C × 100 (centi-°C)
     asicTemp.push(Math.round((52 + Math.sin(i / 9) * 2) * 100));
     vregTemp.push(Math.round((57 + Math.sin(i / 9) * 2) * 100));
@@ -129,6 +129,9 @@ export class MockApiInterceptor implements HttpInterceptor {
       else if (url.includes('/api/history/len')) body = { length: 0 };
       else if (url.includes('/api/history/data')) body = { ts: [] };
       else if (url.includes('/api/system/OTA/github')) body = { status: 'idle' };
+      else if (url.endsWith('/api/v2/dashboard')) body = this.buildDashboardV2();
+      else if (url.endsWith('/api/v2/identify')) body = this.buildIdentifyV2();
+      else if (url.endsWith('/api/v2/system')) body = this.buildSystemV2();
     }
 
     // Escrituras (guardar ajustes, etc.): fingir éxito para que la UI no falle.
@@ -189,7 +192,7 @@ export class MockApiInterceptor implements HttpInterceptor {
       smallCoreCount: 6667,
       ASICModel: 'BM1370',
       deviceModel: 'NerdAxe',
-      stratumURL: 'pool.bitronics.store',
+      stratumURL: 'pool.bitronics.com',
       stratumPort: 3333,
       stratumUser: 'bc1q29hp4fqtks2wzpmfwtpac64fnr8ujw2nvnra04.nerdqaxe',
       frequency: 375,
@@ -227,5 +230,108 @@ export class MockApiInterceptor implements HttpInterceptor {
 
     info.history = this.history;
     return info;
+  }
+
+  // Nested IDashboardV2 shape (the endpoint the redesigned dashboard polls).
+  private buildDashboardV2(): any {
+    const t = this.tick++;
+    const live = 2522 + Math.sin(t / 4) * 45 + (Math.random() - 0.5) * 30;
+    const asicT = 53 + Math.sin(t / 7) * 1.5;
+    const vrT = 57 + Math.sin(t / 7) * 1.5;
+    const accepted = 1967 + t;
+
+    const pool = {
+      host: 'pool.bitronics.com',
+      port: 3333,
+      user: 'bc1q29hp4fqtks2wzpmfwtpac64fnr8ujw2nvnra04.nerdqaxe',
+      connected: true,
+      activeProtocol: 0,
+      encrypted: false,
+      accepted,
+      rejected: 3,
+      bestDiff: 3_590_000_000,
+      pingRtt: 63,
+      pingLoss: 0,
+      poolDifficulty: 512,
+      networkDifficulty: 1.21e14,
+    };
+
+    return {
+      system: { uptime: 86_400 + t * 2, shutdown: false, boardError: 0, overheatTemp: 0 },
+      performance: {
+        hashRateTimestamp: Date.now(),
+        hashRate: Math.round(live * 100) / 100,
+        hashRate1m: Math.round(live * 100) / 100,
+        hashRate10m: Math.round((live - 20) * 100) / 100,
+        hashRate1h: Math.round((live - 50) * 100) / 100,
+        hashRate1d: Math.round((live - 90) * 100) / 100,
+        bestDiff: 3_590_000_000,
+        bestSessionDiff: 7_280_000,
+        sharesAccepted: accepted,
+        sharesRejected: 3,
+        frequency: 375,
+        asicCount: 1,
+        smallCoreCount: 6667,
+      },
+      power: {
+        watts: Math.round((30.9 + Math.sin(t / 5) * 0.5) * 100) / 100,
+        min: 5,
+        max: 40,
+        voltage: 12.0,
+        voltageMin: 10.8,
+        voltageMax: 13.2,
+        currentA: Math.round((2.58 + Math.sin(t / 5) * 0.05) * 100) / 100,
+        currentAMin: 0,
+        currentAMax: 6,
+        coreVoltageActual: 1.0,
+      },
+      thermal: {
+        asicTemp: Math.round(asicT * 10) / 10,
+        vrTemp: Math.round(vrT * 10) / 10,
+        vrTempInt: 0,
+        asicTemps: [Math.round(asicT * 10) / 10],
+        fans: [{ speed: 82, rpm: 4920 }],
+      },
+      stratum: {
+        poolMode: 0,
+        activePoolMode: 0,
+        usingFallback: false,
+        totalBestDiff: 3_590_000_000,
+        poolBalance: 0,
+        pools: [pool],
+      },
+      can: { hasExtension: false, enabled: false },
+      coinbase: { blockHeaders: [], pools: [] },
+      history: this.history,
+    };
+  }
+
+  // IIdentifyV2: device model + default theme + CAN flag (used by the header).
+  private buildIdentifyV2(): any {
+    return {
+      deviceModel: 'NerdAxeGaia',
+      defaultTheme: 'gaia',
+      can: { enabled: false },
+    };
+  }
+
+  // ISystemV2 — used by the System page (getSystemV2 -> /api/v2/system).
+  private buildSystemV2(): any {
+    return {
+      deviceModel: 'NerdAxeGaia',
+      asicModel: 'BM1373',
+      version: 'demo-1.0',
+      uptimeSeconds: 86_400,
+      lastResetReason: 'Power on',
+      network: {
+        hostname: 'nerdaxegaia-demo',
+        ssid: 'BitronicsLab',
+        macAddr: 'AA:BB:CC:DD:EE:FF',
+        ipAddr: '192.168.1.50',
+        wifiStatus: 'Connected!',
+        wifiRSSI: -54,
+      },
+      memory: { freeHeap: 120_000, freeHeapInt: 45_000 },
+    };
   }
 }

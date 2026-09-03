@@ -115,7 +115,7 @@
 .nerd-stat__foot--right { margin-top: auto; text-align: right; }
 
 /* per-card accent colors (match the mockup) */
-.nerd-stat--hash   { --accent: #7b6ef6; }
+.nerd-stat--hash   { --accent: #e8a23c; }
 .nerd-stat--shares { --accent: #21c7c7; }
 .nerd-stat--eff    { --accent: #34d399; }
 .nerd-stat--best   { --accent: #e8a23c; }
@@ -177,8 +177,8 @@
 }
 .nerd-panel__edit:hover {
   opacity: 1;
-  color: #7db4ff;
-  background: rgba(59, 157, 255, 0.12);
+  color: #f0b352;
+  background: rgba(232, 162, 60, 0.12);
 }
 
 /* metric row: icon + label/value + sparkline */
@@ -279,7 +279,7 @@
 
 /* per-metric accent colors */
 .metric-row.m-purple { --m: #7b6ef6; }
-.metric-row.m-blue   { --m: #3b9dff; }
+.metric-row.m-blue   { --m: #e8a23c; }
 .metric-row.m-amber  { --m: #e8a23c; }
 .metric-row.m-red    { --m: #f0584b; }
 .metric-row.m-cyan   { --m: #21c7c7; }
@@ -485,8 +485,8 @@
 }
 .nerd-chart-range:hover { color: var(--text-basic-color); }
 .nerd-chart-range.is-active {
-  background: rgba(59, 157, 255, 0.18);
-  color: #7db4ff;
+  background: rgba(232, 162, 60, 0.18);
+  color: #f0b352;
 }
 .nerd-chart-header2__right {
   margin-left: auto;
@@ -553,7 +553,7 @@
   padding: 0 0.5rem 0.45rem;
   pointer-events: none;
 }
-.nerd-chart-axis__left  { font-size: 0.72rem; font-weight: 600; color: #9a8ff7; }
+.nerd-chart-axis__left  { font-size: 0.72rem; font-weight: 600; color: #f0b352; }
 .nerd-chart-axis__right { font-size: 0.72rem; font-weight: 600; color: #41c9d6; }
 /* controls at the bottom, well distributed */
 :host-context(.nb-theme-gaia) .nerd-chart-footer {

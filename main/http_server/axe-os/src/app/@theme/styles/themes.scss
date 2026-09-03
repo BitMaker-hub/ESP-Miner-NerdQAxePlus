@@ -217,13 +217,13 @@ $nb-themes: nb-register-theme((
   menu-item-divider-width: 0,
   menu-item-divider-style: none,
   menu-item-divider-color: transparent,
-  menu-item-hover-background-color: rgba(59, 157, 255, 0.10),
+  menu-item-hover-background-color: rgba(232, 162, 60, 0.10),
   menu-item-hover-text-color: #ffffff,
   menu-item-icon-hover-color: #ffffff,
-  menu-item-active-background-color: rgba(59, 157, 255, 0.16),
-  menu-item-active-text-color: #7db4ff,
-  menu-item-icon-active-color: #3b9dff,
+  menu-item-active-background-color: rgba(232, 162, 60, 0.16),
+  menu-item-active-text-color: #f0b352,
+  menu-item-icon-active-color: #e8a23c,
   // indicador del item activo cuando el menú está compactado (Nebular lo pinta
   // con el primary por defecto -> ámbar; lo forzamos a azul para que combine)
-  sidebar-menu-item-highlight-color: #3b9dff,
+  sidebar-menu-item-highlight-color: #e8a23c,
 ), gaia, cosmic);

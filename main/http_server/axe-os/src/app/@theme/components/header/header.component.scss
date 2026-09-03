@@ -62,6 +62,16 @@
         color: nb-theme(text-basic-color);
         white-space: nowrap;
       }
+
+      .gaia-wordmark {
+        font-size: 1.35rem;
+        font-weight: 800;
+        letter-spacing: 0.4px;
+        color: #f4f4f6;
+        white-space: nowrap;
+
+        &__os { color: #e8a23c; }
+      }
     }
   }
 
@@ -139,12 +149,20 @@
     padding-left: 0.4em; /* balance the trailing letter-spacing for true centring */
     text-transform: uppercase;
     white-space: nowrap;
-    background: linear-gradient(90deg, #e8a23c 0%, #f0b352 42%, #7db4ff 100%);
+    background: linear-gradient(90deg, #e8a23c 0%, #f0b352 42%, #f0b352 100%);
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
     color: transparent;
   }
+  .header-series__brand {
+    font-size: 1.2rem;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    color: #f4f4f6;
+    white-space: nowrap;
+  }
+  .header-series__brand .header-series__os { color: #e8a23c; }
   .header-series__line {
     width: 1.6rem;
     height: 1px;
@@ -182,7 +200,7 @@
     transform: translateY(2px);
   }
   .header-container:first-child .logo img {
-    max-height: 28px;
+    max-height: 36px;
   }
 
   /* botón de plegar el menú: anclado a la IZQUIERDA del bloque del sidebar,
@@ -211,7 +229,7 @@
     height: 22px;
   }
   .header-container:first-child .sidebar-toggle:hover {
-    color: #7db4ff;
-    background: rgba(59, 157, 255, 0.12);
+    color: #f0b352;
+    background: rgba(232, 162, 60, 0.12);
   }
 }
