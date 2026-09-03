@@ -38,7 +38,7 @@ NerdaxeGaia::NerdaxeGaia() : NerdAxe() {
     m_initVoltageMillis = 1000;
     m_fanInvertPolarity = false;
     m_fanPerc = 100;
-    m_flipScreen = true;
+    m_flipScreen = false;   // Gaia panel mounted rotated 180° vs NerdAxe → flip default
     m_vr_maxTemp = TPS546_THROTTLE_TEMP; //Set max voltage regulator temp
 
     m_pidSettings[0].targetTemp = 60;
