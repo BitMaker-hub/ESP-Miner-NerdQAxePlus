@@ -92,6 +92,10 @@ esp_err_t GET_system_info(httpd_req_t *req)
     char *fallbackStratumURL = Config::getStratumFallbackURL();
     char *fallbackStratumUser= Config::getStratumFallbackUser();
 
+    char *sv2_auth = Config::getSV2AuthorityPubkey();
+    char *fb_sv2_auth = Config::getFallbackSV2AuthorityPubkey();
+
+
     // static
     doc["asicCount"]          = board->getAsicCount();
     doc["smallCoreCount"]     = (board->getAsics()) ? board->getAsics()->getSmallCoreCount() : 0;
@@ -148,7 +152,8 @@ esp_err_t GET_system_info(httpd_req_t *req)
     doc["bestDiff"]           = STRATUM_MANAGER->getBestDiff();
     doc["bestSessionDiff"]    = STRATUM_MANAGER->getBestSessionDiff();
 
-    STRATUM_MANAGER->getManagerInfoJson(stratum_obj);
+    // v1 /info: slim legacy shape (external clients like the Blocktrainer terminal)
+    STRATUM_MANAGER->getManagerInfoJson(stratum_obj, false);
 
     // asic temps
     {
@@ -183,7 +188,7 @@ esp_err_t GET_system_info(httpd_req_t *req)
             PidSettings* fanPid = board->getPidSettings(ch);
             JsonObject fan = fans.add<JsonObject>();
             fan["label"]        = board->getFanLabel(ch);
-            fan["mode"]         = Config::getFanMode(ch);
+            fan["mode"]         = board->getFanMode(ch);
             fan["manualSpeed"]  = Config::getFanManualSpeed(ch);
             fan["overheatTemp"] = Config::getFanOverheatTemp(ch);
             fan["rpm"]          = POWER_MANAGEMENT_MODULE.getFanRPM(ch);
@@ -210,14 +215,8 @@ esp_err_t GET_system_info(httpd_req_t *req)
     doc["fallbackStratumTLS"] = Config::isStratumFallbackTLS();
     doc["stratumProtocol"]    = Config::getStratumProtocol();
     doc["fallbackStratumProtocol"] = Config::getFallbackStratumProtocol();
-    {
-        char *sv2_auth = Config::getSV2AuthorityPubkey();
-        doc["sv2AuthorityPubkey"] = sv2_auth ? sv2_auth : "";
-        safe_free(sv2_auth);
-        char *fb_sv2_auth = Config::getFallbackSV2AuthorityPubkey();
-        doc["fallbackSv2AuthorityPubkey"] = fb_sv2_auth ? fb_sv2_auth : "";
-        safe_free(fb_sv2_auth);
-    }
+    doc["sv2AuthorityPubkey"] = sv2_auth;
+    doc["fallbackSv2AuthorityPubkey"] = fb_sv2_auth;
     doc["sv2ChannelType"]     = Config::getSV2ChannelType();
     doc["fallbackSv2ChannelType"] = Config::getFallbackSV2ChannelType();
     doc["voltage"]            = POWER_MANAGEMENT_MODULE.getVoltage();
@@ -230,7 +229,7 @@ esp_err_t GET_system_info(httpd_req_t *req)
     doc["invertscreen"]       = Config::isInvertScreenEnabled() ? 1 : 0; // unused?
     doc["autoscreenoff"]      = Config::isAutoScreenOffEnabled() ? 1 : 0;
     doc["invertfanpolarity"]  = board->isInvertFanPolarityEnabled() ? 1 : 0;
-    doc["autofanspeed"]       = Config::getTempControlMode();
+    doc["autofanspeed"]       = board->getFanMode(0);
     doc["stratum_keep"]       = Config::isStratumKeepaliveEnabled() ? 1 : 0;
 #ifdef VR_FREQUENCY_ENABLED
     doc["vrFrequency"]        = board->getVrFrequency();
@@ -263,6 +262,9 @@ esp_err_t GET_system_info(httpd_req_t *req)
     free(stratumUser);
     free(fallbackStratumURL);
     free(fallbackStratumUser);
+
+    free(sv2_auth);
+    free(fb_sv2_auth);
 
     return ret;
 }

@@ -107,9 +107,11 @@
 #define NVS_CONFIG_STRATUM_PROTOCOL "sv2_proto"
 #define NVS_CONFIG_SV2_AUTHORITY_PUBKEY "sv2_auth_pk"
 #define NVS_CONFIG_SV2_CHANNEL_TYPE "sv2_chan_type"
+#define NVS_CONFIG_SV2_REQUIRE_AUTH "sv2_reqauth"
 #define NVS_CONFIG_FB_STRATUM_PROTOCOL "fbsv2_proto"
 #define NVS_CONFIG_FB_SV2_AUTHORITY_PUBKEY "fbsv2_authpk"
 #define NVS_CONFIG_FB_SV2_CHANNEL_TYPE "fbsv2_chtype"
+#define NVS_CONFIG_FB_SV2_REQUIRE_AUTH "fbsv2_reqauth"
 
 #if defined(CONFIG_FAN_MODE_MANUAL)
 #define CONFIG_AUTO_FAN_SPEED_VALUE 0
@@ -189,7 +191,6 @@ namespace Config {
     inline uint16_t getFanSpeed() { return cfgGetU16(NVS_CONFIG_FAN_SPEED, CONFIG_FAN_SPEED); }
     inline uint16_t getOverheatTemp() { return cfgGetU16(NVS_CONFIG_OVERHEAT_TEMP, CONFIG_OVERHEAT_TEMP); }
     inline uint16_t getInfluxPort() { return cfgGetU16(NVS_CONFIG_INFLUX_PORT, CONFIG_INFLUX_PORT); }
-    inline uint16_t getTempControlMode() { return cfgGetU16(NVS_CONFIG_AUTO_FAN_SPEED, CONFIG_AUTO_FAN_SPEED_VALUE); }
     inline uint16_t getPoolMode() { return cfgGetU16(NVS_CONFIG_POOL_MODE, 0); }
     inline uint16_t getPoolBalance() { return cfgGetU16(NVS_CONFIG_POOL_MODE_BALANCE, 50); }
 
@@ -214,9 +215,9 @@ namespace Config {
     // Indexed fan-channel getters (ch=0 → ch0 NVS keys, ch=1 → fan1 NVS keys)
     // ch0 defaults: mode=CONFIG_AUTO_FAN_SPEED_VALUE, speed=CONFIG_FAN_SPEED, overheat=CONFIG_OVERHEAT_TEMP
     // ch1 defaults: mode=3 (linked), speed=100%, overheat=80°C
-    inline uint16_t getFanMode(int ch) {
-        return ch == 0 ? cfgGetU16(NVS_CONFIG_AUTO_FAN_SPEED, CONFIG_AUTO_FAN_SPEED_VALUE)
-                       : cfgGetU16(NVS_CONFIG_FAN1_MODE, 3);
+    inline uint16_t getFanMode(int ch, uint16_t def) {
+        return ch == 0 ? cfgGetU16(NVS_CONFIG_AUTO_FAN_SPEED, def)
+                       : cfgGetU16(NVS_CONFIG_FAN1_MODE, def);
     }
     inline uint16_t getFanManualSpeed(int ch) {
         return ch == 0 ? cfgGetU16(NVS_CONFIG_FAN_SPEED, CONFIG_FAN_SPEED)
@@ -318,6 +319,10 @@ namespace Config {
     inline void setSV2ChannelType(uint16_t value) { cfgSetU16(NVS_CONFIG_SV2_CHANNEL_TYPE, value); }
     inline uint16_t getFallbackSV2ChannelType() { return cfgGetU16(NVS_CONFIG_FB_SV2_CHANNEL_TYPE, 0); }
     inline void setFallbackSV2ChannelType(uint16_t value) { cfgSetU16(NVS_CONFIG_FB_SV2_CHANNEL_TYPE, value); }
+    inline bool isSV2RequireAuth() { return cfgGetU16(NVS_CONFIG_SV2_REQUIRE_AUTH, 0) != 0; }
+    inline void setSV2RequireAuth(bool value) { cfgSetU16(NVS_CONFIG_SV2_REQUIRE_AUTH, value ? 1 : 0); }
+    inline bool isFallbackSV2RequireAuth() { return cfgGetU16(NVS_CONFIG_FB_SV2_REQUIRE_AUTH, 0) != 0; }
+    inline void setFallbackSV2RequireAuth(bool value) { cfgSetU16(NVS_CONFIG_FB_SV2_REQUIRE_AUTH, value ? 1 : 0); }
 
     // ---- Boolean Setters ----
     inline void setFlipScreen(bool value) { cfgSetU16(NVS_CONFIG_FLIP_SCREEN, value ? 1 : 0); }

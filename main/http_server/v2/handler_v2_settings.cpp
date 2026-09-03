@@ -83,16 +83,17 @@ esp_err_t GET_V2_settings(httpd_req_t *req)
             JsonObject pool = pools.add<JsonObject>();
             char *url  = Config::getStratumURL();
             char *user = Config::getStratumUser();
-            pool["url"]              = url  ? url  : "";
+            pool["url"]              = url; 
             pool["port"]             = Config::getStratumPortNumber();
-            pool["user"]             = user ? user : "";
+            pool["user"]             = user;
             pool["enonceSubscribe"]  = Config::isStratumEnonceSubscribe();
             pool["tls"]              = Config::isStratumTLS();
             pool["protocol"]         = Config::getStratumProtocol();
             char *sv2 = Config::getSV2AuthorityPubkey();
-            pool["sv2AuthorityPubkey"] = sv2 ? sv2 : "";
+            pool["sv2AuthorityPubkey"] = sv2;
             safe_free(sv2);
             pool["sv2ChannelType"]   = Config::getSV2ChannelType();
+            pool["sv2RequireAuth"]   = Config::isSV2RequireAuth();
             pool["coinbaseVerifyMode"]  = Config::getCoinbaseVerifyMode(0);
             pool["coinbaseMaxFee"]      = Config::getCoinbaseMaxFee(0) / 10.0f;
             pool["coinbaseVerifyForce"] = Config::getCoinbaseVerifyForce(0);
@@ -105,16 +106,17 @@ esp_err_t GET_V2_settings(httpd_req_t *req)
             JsonObject pool = pools.add<JsonObject>();
             char *url  = Config::getStratumFallbackURL();
             char *user = Config::getStratumFallbackUser();
-            pool["url"]              = url  ? url  : "";
+            pool["url"]              = url;
             pool["port"]             = Config::getStratumFallbackPortNumber();
-            pool["user"]             = user ? user : "";
+            pool["user"]             = user;
             pool["enonceSubscribe"]  = Config::isStratumFallbackEnonceSubscribe();
             pool["tls"]              = Config::isStratumFallbackTLS();
             pool["protocol"]         = Config::getFallbackStratumProtocol();
             char *sv2 = Config::getFallbackSV2AuthorityPubkey();
-            pool["sv2AuthorityPubkey"] = sv2 ? sv2 : "";
+            pool["sv2AuthorityPubkey"] = sv2;
             safe_free(sv2);
             pool["sv2ChannelType"]   = Config::getFallbackSV2ChannelType();
+            pool["sv2RequireAuth"]   = Config::isFallbackSV2RequireAuth();
             pool["coinbaseVerifyMode"]  = Config::getCoinbaseVerifyMode(1);
             pool["coinbaseMaxFee"]      = Config::getCoinbaseMaxFee(1) / 10.0f;
             pool["coinbaseVerifyForce"] = Config::getCoinbaseVerifyForce(1);
@@ -131,7 +133,7 @@ esp_err_t GET_V2_settings(httpd_req_t *req)
             PidSettings* fanPid = board->getPidSettings(ch);
             JsonObject fan = fans.add<JsonObject>();
             fan["label"]       = board->getFanLabel(ch);
-            fan["mode"]        = Config::getFanMode(ch);
+            fan["mode"]        = board->getFanMode(ch);
             fan["manualSpeed"] = Config::getFanManualSpeed(ch);
             fan["overheatTemp"] = Config::getFanOverheatTemp(ch);
             JsonObject pid_obj = fan["pid"].to<JsonObject>();
@@ -150,8 +152,8 @@ esp_err_t GET_V2_settings(httpd_req_t *req)
     {
         char *hostname = Config::getHostname();
         char *ssid     = Config::getWifiSSID();
-        doc["hostname"] = hostname ? hostname : "";
-        doc["ssid"]     = ssid     ? ssid     : "";
+        doc["hostname"] = hostname;
+        doc["ssid"]     = ssid;
         free(hostname);
         free(ssid);
     }
@@ -160,7 +162,7 @@ esp_err_t GET_V2_settings(httpd_req_t *req)
     {
         doc["mempoolCustom"] = Config::isMempoolCustom();
         char *mempoolUrl = Config::getMempoolUrl();
-        doc["mempoolUrl"] = mempoolUrl ? mempoolUrl : "";
+        doc["mempoolUrl"] = mempoolUrl;
         free(mempoolUrl);
     }
 
@@ -347,6 +349,10 @@ esp_err_t PATCH_V2_settings(httpd_req_t *req)
             if (pool["sv2ChannelType"].is<uint16_t>()) {
                 if (i == 0) Config::setSV2ChannelType(pool["sv2ChannelType"].as<uint16_t>());
                 else        Config::setFallbackSV2ChannelType(pool["sv2ChannelType"].as<uint16_t>());
+            }
+            if (pool["sv2RequireAuth"].is<bool>()) {
+                if (i == 0) Config::setSV2RequireAuth(pool["sv2RequireAuth"].as<bool>());
+                else        Config::setFallbackSV2RequireAuth(pool["sv2RequireAuth"].as<bool>());
             }
 
             // Coinbase verification
