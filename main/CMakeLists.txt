@@ -129,6 +129,8 @@ REQUIRES
     "driver"
     "esp_adc"
     "esp_app_format"
+    "esp_partition"
+    "espcoredump"
     "esp_event"
     "esp_http_server"
     "esp_http_client"

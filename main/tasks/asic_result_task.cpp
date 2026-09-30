@@ -193,8 +193,7 @@ void ASIC_result_task(void *pvParameters)
                 case 0x92:
                 case 0x93:
                 case 0x94:
-                case 0x95:
-                case 0x4C: {  // ERROR_COUNT candidate per bitaxe docs
+                case 0x95: {
                     ESP_LOGI(TAG, "[PROBE] reg=0x%02X asic=%d value=%lu (0x%08lX)",
                              (unsigned int) asic_result.reg,
                              (int) asic_result.asic_nr,
@@ -203,6 +202,11 @@ void ASIC_result_task(void *pvParameters)
                     break;
                 }
 #endif // PROBE_ENABLED
+                case 0x4C: {
+                    // hardware error counter (per chip)
+                    HASHRATE_MONITOR.onErrorReply(asic_result.asic_nr, asic_result.data);
+                    break;
+                }
                 default: {
 #if PROBE_ENABLED
                     // log anything else unexpected, with reduced detail

@@ -250,12 +250,26 @@ const POOLS: PoolMeta[] = [
     quickLink: (a) => `https://pool.solomining.de/#/app/${a}`,
   },
   {
+    id: 'nerdminer-de',
+    name: 'nerdminer.de',
+    match: (h) => h.includes('nerdminer.de'),
+    quickLink: (a) => `https://pool.nerdminer.de/#/app/${a}`,
+  },
+  {
     id: 'atlaspool',
     name: 'atlaspool.io',
     match: (h) => h.includes('atlaspool.io'),
     quickLink: (a) => `https://atlaspool.io/dashboard.html?wallet=${a}`,
     faviconHost: 'atlaspool.io',
     faviconPath: '/favicon.ico',
+  },
+  {
+    id: 'btc-pow-lab',
+    name: 'BTC PoW Lab Hybrid Solo',
+    match: (h) => h === 'stratum.btcpowlab-pool.com',
+    quickLink: (a) => `https://btcpowlab-pool.com/miner/${a}`,
+    faviconHost: 'btcpowlab-pool.com',
+    faviconPath: '/favicon.svg',
   },
   {
     id: 'sololuck',
@@ -335,7 +349,17 @@ export function getQuickLink(
     return pool.quickLink(address);
   }
 
-  return safeUrl.startsWith('http') ? safeUrl : toUrlLike(safeUrl);
+  if (/^https?:\/\//i.test(safeUrl)) {
+    return safeUrl;
+  }
+
+  // Unknown pool: link to its website. A stratum+tcp:// URL can't be opened by
+  // the browser and the stratum port doesn't serve HTTP, so keep only the host.
+  const host = extractHost(safeUrl);
+  if (!host) {
+    return undefined;
+  }
+  return isLocalHost(host) ? `http://${host}` : `https://${host}`;
 }
 
 /**
