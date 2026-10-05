@@ -109,8 +109,17 @@ export class HomeComponent implements AfterViewChecked, OnInit, OnDestroy {
     zoomStepMs: HOME_CFG.xAxis.zoomStepMs,
   };
 
+  /**
+   * Hashrate accent colour (chart line, bar fill, logo tint). A getter so a
+   * themed dashboard subclass can override it: the chart is built in the
+   * constructor, before subclass fields would be initialised.
+   */
+  protected get hashrateColor(): string {
+    return HOME_CFG.colors.hashrateBase;
+  }
+
   // CSS vars for meter bars (kept in sync with HOME_CFG)
-  @HostBinding('style.--bar-fill') barFill: string = HOME_CFG.colors.hashrateBase;
+  @HostBinding('style.--bar-fill') barFill: string = this.hashrateColor;
   @HostBinding('style.--bar-track') barTrack: string = HOME_CFG.colors.chartGridColor;
   @HostBinding('style.--asic-temp-pill') asicTempPill: string = HOME_CFG.colors.asicTemp;
 
@@ -239,7 +248,7 @@ export class HomeComponent implements AfterViewChecked, OnInit, OnDestroy {
     } catch {}
   }
 
-  private setChartWindowMs(nextMs: number): void {
+  protected setChartWindowMs(nextMs: number): void {
     const next = clampWindowMs(nextMs, this.zoomCfg);
     if (next === this.chartWindowMs) return;
     const prev = this.chartWindowMs;
@@ -656,7 +665,7 @@ export class HomeComponent implements AfterViewChecked, OnInit, OnDestroy {
   private debugAxisPadding: boolean = false;
   private readonly axisPadOverrideEnabledKey: string = '__nerdCharts_axisPaddingOverrideEnabled';
   private readonly axisPadStorageKey: string = '__nerdCharts_axisPadding';
-  public nerdOsLogoColor: string = hexToRgba(HOME_CFG.colors.hashrateBase, 0.6);
+  public nerdOsLogoColor: string = hexToRgba(this.hashrateColor, 0.6);
 
   ngAfterViewChecked(): void {
     // Ensure chart is initialized only once when the canvas becomes available
@@ -815,6 +824,7 @@ export class HomeComponent implements AfterViewChecked, OnInit, OnDestroy {
     } catch {}
 
     const cfg = createHomeChartConfig({
+      hashrateColor: this.hashrateColor,
       series: {
         labels: this.dataLabel,
         hr1m: this.dataData1m,
