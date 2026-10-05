@@ -10,6 +10,9 @@
 #include "drivers/nerdaxe/adc.h"
 #include "drivers/nerdaxe/TPS546.h"
 
+#include "driver/spi_master.h"
+#include "esp_log.h"
+
 #define BM1373_RST_PIN GPIO_NUM_1
 #define LDO_EN_PIN GPIO_NUM_12   // LDO enable (active-high) — new Gaia board
 #define GAIA_POWER_OFFSET 5
@@ -19,6 +22,18 @@ bool tempinit_gaia = false;
 static const char* TAG="nerdaxeGaia";
 
 #define MAX(a,b) ((a)>(b)?(a):(b))
+
+// W5500 ethernet interposer pins (see eth-interposer FIRMWARE-GAIA.md):
+// SCLK=GPIO10 (JP2 2-3), MOSI=GPIO3 (JP3 2-3), MISO=GPIO16, CS=GPIO21.
+// RST=-1 (reset is an RC on the interposer, no GPIO) and IRQ=-1 (polling). This
+// deliberately avoids the driver defaults (GPIO2/12/13/11) which on the Gaia are
+// /VDD, LDO_EN, PMB_ALRT and PGOOD — driving any of those would break power-up.
+static const EthPins kEthPins = { .sclk = 10, .mosi = 3, .miso = 16, .cs = 21, .rst = -1, .irq = -1 };
+
+const EthPins *NerdaxeGaia::getEthPins()
+{
+    return &kEthPins;
+}
 
 NerdaxeGaia::NerdaxeGaia() : NerdAxe() {
     m_deviceModel = "NerdAxeGaia";
@@ -72,6 +87,65 @@ NerdaxeGaia::NerdaxeGaia() : NerdAxe() {
     m_asics = new BM1373();
     m_hasHashCounter = true;
     m_vrFrequency = m_defaultVrFrequency = m_asics->getDefaultVrFrequency();
+
+    // Auto-detect the W5500 ethernet interposer (reads its VERSIONR over SPI).
+    // Done here so hasEthernet() is already known when main() decides whether to
+    // bring up ethernet (it is queried before initBoard()).
+    m_hasEth = probeW5500();
+}
+
+// Probe for the W5500 ethernet interposer: read VERSIONR (common block 0x0039,
+// expected 0x04) over a short-lived SPI session on the Gaia eth pins, then release
+// the bus so earlySpiInit() can set it up normally. No pins stay claimed if absent.
+bool NerdaxeGaia::probeW5500()
+{
+    spi_bus_config_t buscfg = {};
+    buscfg.mosi_io_num = kEthPins.mosi;
+    buscfg.miso_io_num = kEthPins.miso;
+    buscfg.sclk_io_num = kEthPins.sclk;
+    buscfg.quadwp_io_num = -1;
+    buscfg.quadhd_io_num = -1;
+
+    esp_err_t err = spi_bus_initialize(SPI2_HOST, &buscfg, SPI_DMA_CH_AUTO);
+    bool weInitBus = (err == ESP_OK);
+    if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {
+        ESP_LOGW(TAG, "W5500 probe: spi_bus_initialize failed (%s)", esp_err_to_name(err));
+        return false;
+    }
+
+    spi_device_interface_config_t devcfg = {};
+    devcfg.command_bits = 16;   // W5500 16-bit address phase
+    devcfg.address_bits = 8;    // W5500 8-bit control phase
+    devcfg.mode = 0;
+    devcfg.clock_speed_hz = 2 * 1000 * 1000;
+    devcfg.spics_io_num = kEthPins.cs;
+    devcfg.queue_size = 1;
+
+    spi_device_handle_t dev = nullptr;
+    bool present = false;
+    if (spi_bus_add_device(SPI2_HOST, &devcfg, &dev) == ESP_OK) {
+        spi_transaction_t t = {};
+        t.cmd = 0x0039;                   // VERSIONR address
+        t.addr = 0x00;                    // control: common block, read, VDM
+        t.length = 8;
+        t.rxlength = 8;
+        t.flags = SPI_TRANS_USE_RXDATA;
+        uint8_t ver = 0;
+        if (spi_device_polling_transmit(dev, &t) == ESP_OK) {
+            ver = t.rx_data[0];
+        }
+        ESP_LOGI(TAG, "W5500 interposer probe: VERSIONR=0x%02x -> %s", ver,
+                 (ver == 0x04) ? "present" : "absent");
+        present = (ver == 0x04);
+        spi_bus_remove_device(dev);
+    } else {
+        ESP_LOGW(TAG, "W5500 probe: spi_bus_add_device failed");
+    }
+
+    if (weInitBus) {
+        spi_bus_free(SPI2_HOST);
+    }
+    return present;
 }
 
 

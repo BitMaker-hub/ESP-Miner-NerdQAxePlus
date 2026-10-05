@@ -7,6 +7,12 @@
 #include "nvs_config.h"
 #include "../pid/PID_v1_bc.h"
 
+// Ethernet (W5500 interposer) pin map, per board. -1 = not wired / not used.
+// rst = -1 means the board resets the W5500 by RC (no GPIO); irq = -1 means polling.
+struct EthPins {
+    int sclk = -1, mosi = -1, miso = -1, cs = -1, rst = -1, irq = -1;
+};
+
 class Board {
 public:
     enum Error {
@@ -346,6 +352,11 @@ public:
 
     virtual bool hasEthernet() {
         return false;
+    }
+
+    // W5500 ethernet pin map for this board; nullptr = board has no ethernet wiring.
+    virtual const EthPins *getEthPins() {
+        return nullptr;
     }
 
     virtual bool hasCanExtension() {

@@ -63,6 +63,11 @@ class NetworkManager {
         return !m_apShutdownDone;
     }
 
+    void setEthPins(int sclk, int mosi, int miso, int cs, int rst, int irq)
+    {
+        m_eth.setPins(sclk, mosi, miso, cs, rst, irq);
+    }
+
     void earlyEthSpiInit()
     {
         m_eth.earlySpiInit();
