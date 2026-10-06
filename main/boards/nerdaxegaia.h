@@ -13,8 +13,8 @@ class NerdaxeGaia : public NerdAxe {
     // reading the W5500 VERSIONR over SPI (see eth-interposer docs/FIRMWARE-GAIA.md).
     bool m_hasEth = false;
 
-    // Probe the interposer: reads W5500 VERSIONR (expects 0x04) on the eth pins.
-    bool probeW5500();
+    // Checks over SPI whether the W5500 interposer is present on the board.
+    bool isEthConnected();
 
     // LDO enable line (GPIO12) — power sequencing helpers
     void LDO_enable();

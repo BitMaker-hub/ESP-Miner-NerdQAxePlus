@@ -91,13 +91,11 @@ NerdaxeGaia::NerdaxeGaia() : NerdAxe() {
     // Auto-detect the W5500 ethernet interposer (reads its VERSIONR over SPI).
     // Done here so hasEthernet() is already known when main() decides whether to
     // bring up ethernet (it is queried before initBoard()).
-    m_hasEth = probeW5500();
+    m_hasEth = isEthConnected();
 }
 
-// Probe for the W5500 ethernet interposer: read VERSIONR (common block 0x0039,
-// expected 0x04) over a short-lived SPI session on the Gaia eth pins, then release
-// the bus so earlySpiInit() can set it up normally. No pins stay claimed if absent.
-bool NerdaxeGaia::probeW5500()
+// Returns true if the W5500 interposer is present on the board (checked over SPI).
+bool NerdaxeGaia::isEthConnected()
 {
     spi_bus_config_t buscfg = {};
     buscfg.mosi_io_num = kEthPins.mosi;
