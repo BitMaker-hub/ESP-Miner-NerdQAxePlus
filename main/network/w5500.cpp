@@ -224,10 +224,12 @@ esp_err_t W5500::earlySpiInit()
         return err;
     }
 
-    // Clean software reset before the driver probes the chip. The interposer's
-    // reset is an RC that only fires on power-up, so a software reboot of the ESP
-    // leaves the W5500 as it was; force a known-good state here.
-    swReset();
+    // Only software-reset when there is no hardware RST GPIO: a board with a RST pin
+    // was already reset above by hwResetGpio(). A board whose RST is RC-only (fires
+    // on power-up) needs this so a software reboot of the ESP also resets the W5500.
+    if (m_pinRst == GPIO_NUM_NC) {
+        swReset();
+    }
 
     eth_mac_config_t mac_config = ETH_MAC_DEFAULT_CONFIG();
     eth_phy_config_t phy_config = ETH_PHY_DEFAULT_CONFIG();
