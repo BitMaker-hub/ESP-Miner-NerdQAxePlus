@@ -361,6 +361,11 @@ public:
         return nullptr;
     }
 
+    // Checks over SPI whether a W5500 interposer is present on this board's eth pins.
+    // Generic: uses getEthPins(), so any board that defines its pins reuses it.
+    // Returns false when the board has no ethernet wiring.
+    bool isEthConnected();
+
     virtual bool hasCanExtension() {
         return false;
     }

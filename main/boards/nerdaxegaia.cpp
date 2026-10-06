@@ -10,7 +10,6 @@
 #include "drivers/nerdaxe/adc.h"
 #include "drivers/nerdaxe/TPS546.h"
 
-#include "driver/spi_master.h"
 #include "esp_log.h"
 
 #define BM1373_RST_PIN GPIO_NUM_1
@@ -93,58 +92,6 @@ NerdaxeGaia::NerdaxeGaia() : NerdAxe() {
     // Done here so hasEthernet() is already known when main() decides whether to
     // bring up ethernet (it is queried before initBoard()).
     m_hasEth = isEthConnected();
-}
-
-// Returns true if the W5500 interposer is present on the board (checked over SPI).
-bool NerdaxeGaia::isEthConnected()
-{
-    spi_bus_config_t buscfg = {};
-    buscfg.mosi_io_num = kEthPins.mosi;
-    buscfg.miso_io_num = kEthPins.miso;
-    buscfg.sclk_io_num = kEthPins.sclk;
-    buscfg.quadwp_io_num = -1;
-    buscfg.quadhd_io_num = -1;
-
-    esp_err_t err = spi_bus_initialize(SPI2_HOST, &buscfg, SPI_DMA_CH_AUTO);
-    bool weInitBus = (err == ESP_OK);
-    if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {
-        ESP_LOGW(TAG, "W5500 probe: spi_bus_initialize failed (%s)", esp_err_to_name(err));
-        return false;
-    }
-
-    spi_device_interface_config_t devcfg = {};
-    devcfg.command_bits = 16;   // W5500 16-bit address phase
-    devcfg.address_bits = 8;    // W5500 8-bit control phase
-    devcfg.mode = 0;
-    devcfg.clock_speed_hz = 2 * 1000 * 1000;
-    devcfg.spics_io_num = kEthPins.cs;
-    devcfg.queue_size = 1;
-
-    spi_device_handle_t dev = nullptr;
-    bool present = false;
-    if (spi_bus_add_device(SPI2_HOST, &devcfg, &dev) == ESP_OK) {
-        spi_transaction_t t = {};
-        t.cmd = 0x0039;                   // VERSIONR address
-        t.addr = 0x00;                    // control: common block, read, VDM
-        t.length = 8;
-        t.rxlength = 8;
-        t.flags = SPI_TRANS_USE_RXDATA;
-        uint8_t ver = 0;
-        if (spi_device_polling_transmit(dev, &t) == ESP_OK) {
-            ver = t.rx_data[0];
-        }
-        ESP_LOGI(TAG, "W5500 interposer probe: VERSIONR=0x%02x -> %s", ver,
-                 (ver == 0x04) ? "present" : "absent");
-        present = (ver == 0x04);
-        spi_bus_remove_device(dev);
-    } else {
-        ESP_LOGW(TAG, "W5500 probe: spi_bus_add_device failed");
-    }
-
-    if (weInitBus) {
-        spi_bus_free(SPI2_HOST);
-    }
-    return present;
 }
 
 

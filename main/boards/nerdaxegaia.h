@@ -9,12 +9,9 @@ class NerdaxeGaia : public NerdAxe {
   protected:
     int m_initVoltageMillis;
 
-    // W5500 ethernet interposer present — auto-detected in the constructor by
-    // reading the W5500 VERSIONR over SPI (see eth-interposer docs/FIRMWARE-GAIA.md).
+    // W5500 ethernet interposer present — auto-detected in the constructor via the
+    // base Board::isEthConnected() probe (see eth-interposer docs/FIRMWARE-GAIA.md).
     bool m_hasEth = false;
-
-    // Checks over SPI whether the W5500 interposer is present on the board.
-    bool isEthConnected();
 
     // LDO enable line (GPIO12) — power sequencing helpers
     void LDO_enable();
