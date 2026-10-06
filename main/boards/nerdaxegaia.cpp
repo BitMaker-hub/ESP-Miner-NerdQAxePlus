@@ -88,9 +88,6 @@ NerdaxeGaia::NerdaxeGaia() : NerdAxe() {
     m_hasHashCounter = true;
     m_vrFrequency = m_defaultVrFrequency = m_asics->getDefaultVrFrequency();
 
-    // Auto-detect the W5500 ethernet interposer (reads its VERSIONR over SPI).
-    // Done here so hasEthernet() is already known when main() decides whether to
-    // bring up ethernet (it is queried before initBoard()).
     m_hasEth = isEthConnected();
 }
 
