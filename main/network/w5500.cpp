@@ -194,12 +194,6 @@ esp_err_t W5500::earlySpiInit()
     ESP_LOGW(TAG_ETH, "W5500::init start (sclk=%d mosi=%d miso=%d cs=%d rst=%d int=%d)",
              (int) m_pinSclk, (int) m_pinMosi, (int) m_pinMiso, (int) m_pinCs, (int) m_pinRst, (int) m_pinInt);
 
-    // Reset only when a dedicated GPIO is wired; rst == GPIO_NUM_NC means the board
-    // resets the W5500 with an RC on power-up (e.g. the Gaia interposer).
-    if (m_pinRst != GPIO_NUM_NC) {
-        hwResetGpio(m_pinRst);
-    }
-
     /* Create netif */
     esp_netif_config_t netif_cfg = ESP_NETIF_DEFAULT_ETH();
     m_ethNetif = esp_netif_new(&netif_cfg);
@@ -224,10 +218,10 @@ esp_err_t W5500::earlySpiInit()
         return err;
     }
 
-    // Only software-reset when there is no hardware RST GPIO: a board with a RST pin
-    // was already reset above by hwResetGpio(). A board whose RST is RC-only (fires
-    // on power-up) needs this so a software reboot of the ESP also resets the W5500.
-    if (m_pinRst == GPIO_NUM_NC) {
+    // Reset the W5500: dedicated RST GPIO if wired, else software reset over SPI.
+    if (m_pinRst != GPIO_NUM_NC) {
+        hwResetGpio(m_pinRst);
+    } else {
         swReset();
     }
 

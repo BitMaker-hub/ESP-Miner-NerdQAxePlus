@@ -21,9 +21,7 @@ Board::Board() {
     m_numFans = 1;
 }
 
-// Returns true if a W5500 interposer is present on this board's eth pins (checked
-// over SPI). Shared by every board that wires ethernet; the per-board part is just
-// getEthPins(). Returns false when the board has no ethernet wiring.
+// Generic W5500 presence probe (reads VERSIONR over SPI on getEthPins()); false if no eth wiring.
 bool Board::isEthConnected()
 {
     const EthPins *pins = getEthPins();
