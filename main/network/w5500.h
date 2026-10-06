@@ -47,18 +47,16 @@ class W5500 {
 
     esp_err_t earlySpiInit();
 
-    /* Override the default pins before earlySpiInit(). Pass -1 to disable a pin:
-       rst=-1 => no GPIO reset (RC on the board), irq=-1 => polling. */
-    void setPins(int sclk, int mosi, int miso, int cs, int rst, int irq);
+    /* Override the default pins before earlySpiInit(). GPIO_NUM_NC disables a pin:
+       rst=NC => no GPIO reset (RC on the board), irq=NC => polling. */
+    void setPins(gpio_num_t sclk, gpio_num_t mosi, gpio_num_t miso, gpio_num_t cs, gpio_num_t rst, gpio_num_t irq);
 
   private:
     static void makeEthMacFromEfuse(uint8_t out_mac[6]);
     static void setEthMac(esp_eth_handle_t eth_handle, const char *tag);
     static void hwResetGpio(gpio_num_t rst);
 
-    /* Software reset over SPI (write MR RST bit). Needed because the interposer's
-       reset is an RC that only fires on power-up, so a software reboot of the ESP
-       would otherwise leave the W5500 in its previous state. */
+    /* Software reset over SPI (MR RST bit); needed because the Eth interposer has no RST pin. */
     void swReset();
 
     void onLinkUp();
@@ -72,14 +70,12 @@ class W5500 {
     void handleIpEvent(int32_t id, void *data);
 
   private:
-    /* Pins (int, so -1 means "not used": rst=-1 => RC reset, no GPIO;
-       int=-1 => polling instead of an interrupt line). Defaults are the q1373's. */
-    int m_pinMosi = 12;
-    int m_pinMiso = 16;
-    int m_pinSclk = 2;
-    int m_pinCs = 21;
-    int m_pinRst = 13;
-    int m_pinInt = 11;
+    gpio_num_t m_pinMosi = GPIO_NUM_12;
+    gpio_num_t m_pinMiso = GPIO_NUM_16;
+    gpio_num_t m_pinSclk = GPIO_NUM_2;
+    gpio_num_t m_pinCs = GPIO_NUM_21;
+    gpio_num_t m_pinRst = GPIO_NUM_13;
+    gpio_num_t m_pinInt = GPIO_NUM_11;
 
     /* State */
     bool m_inited = false;

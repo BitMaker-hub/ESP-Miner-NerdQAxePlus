@@ -22,7 +22,7 @@ static const char *TAG_ETH = "w5500";
 W5500::W5500()
 {}
 
-void W5500::setPins(int sclk, int mosi, int miso, int cs, int rst, int irq)
+void W5500::setPins(gpio_num_t sclk, gpio_num_t mosi, gpio_num_t miso, gpio_num_t cs, gpio_num_t rst, gpio_num_t irq)
 {
     m_pinSclk = sclk;
     m_pinMosi = mosi;
@@ -77,8 +77,7 @@ void W5500::hwResetGpio(gpio_num_t rst)
 
 void W5500::swReset()
 {
-    // Write the RST bit (0x80) of the Mode Register (MR, common block addr 0x0000).
-    // Control byte 0x04 = common block (BSB 0), write (RWB 1), VDM (OM 0).
+    // Write RST (0x80) to MR (addr 0x0000); control 0x04 = common block, write, VDM.
     spi_device_interface_config_t devcfg = {};
     devcfg.command_bits = 16;
     devcfg.address_bits = 8;
@@ -193,12 +192,12 @@ esp_err_t W5500::earlySpiInit()
     }
 
     ESP_LOGW(TAG_ETH, "W5500::init start (sclk=%d mosi=%d miso=%d cs=%d rst=%d int=%d)",
-             m_pinSclk, m_pinMosi, m_pinMiso, m_pinCs, m_pinRst, m_pinInt);
+             (int) m_pinSclk, (int) m_pinMosi, (int) m_pinMiso, (int) m_pinCs, (int) m_pinRst, (int) m_pinInt);
 
-    // Reset only when a dedicated GPIO is wired; rst < 0 means the board resets
-    // the W5500 with an RC on power-up (e.g. the Gaia interposer).
-    if (m_pinRst >= 0) {
-        hwResetGpio((gpio_num_t) m_pinRst);
+    // Reset only when a dedicated GPIO is wired; rst == GPIO_NUM_NC means the board
+    // resets the W5500 with an RC on power-up (e.g. the Gaia interposer).
+    if (m_pinRst != GPIO_NUM_NC) {
+        hwResetGpio(m_pinRst);
     }
 
     /* Create netif */
@@ -243,8 +242,8 @@ esp_err_t W5500::earlySpiInit()
 
     eth_w5500_config_t w5500_config = ETH_W5500_DEFAULT_CONFIG(spi_host, &spi_devcfg);
 
-    w5500_config.int_gpio_num = m_pinInt;      // -1 => no interrupt line
-    if (m_pinInt < 0) {
+    w5500_config.int_gpio_num = m_pinInt;      // GPIO_NUM_NC => no interrupt line
+    if (m_pinInt == GPIO_NUM_NC) {
         w5500_config.poll_period_ms = 1;       // poll the chip instead (16 KB RX buffer, safe)
     }
 

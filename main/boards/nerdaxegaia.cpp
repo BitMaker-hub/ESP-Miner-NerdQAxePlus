@@ -28,7 +28,8 @@ static const char* TAG="nerdaxeGaia";
 // RST=-1 (reset is an RC on the interposer, no GPIO) and IRQ=-1 (polling). This
 // deliberately avoids the driver defaults (GPIO2/12/13/11) which on the Gaia are
 // /VDD, LDO_EN, PMB_ALRT and PGOOD — driving any of those would break power-up.
-static const EthPins kEthPins = { .sclk = 10, .mosi = 3, .miso = 16, .cs = 21, .rst = -1, .irq = -1 };
+static const EthPins kEthPins = { .sclk = GPIO_NUM_10, .mosi = GPIO_NUM_3, .miso = GPIO_NUM_16,
+                                  .cs = GPIO_NUM_21, .rst = GPIO_NUM_NC, .irq = GPIO_NUM_NC };
 
 const EthPins *NerdaxeGaia::getEthPins()
 {
