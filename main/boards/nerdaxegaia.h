@@ -12,6 +12,12 @@ class NerdaxeGaia : public NerdAxe {
     // W5500 interposer present (auto-detected in the ctor).
     bool m_hasEth = false;
 
+    // TPS546 output over-current limits and switching frequency applied in initBoard().
+    // Defaults are for the 1-phase Gaia; the 2-phase Gaia Pro overrides them in its ctor.
+    float m_tpsOcWarnA  = 28.0f;
+    float m_tpsOcFaultA = 33.0f;
+    int   m_tpsSwitchKHz = 400;
+
     // LDO enable line (GPIO12) — power sequencing helpers
     void LDO_enable();
     void LDO_disable();

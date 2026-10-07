@@ -15,6 +15,7 @@
 #include "boards/nerdaxe.h"
 #include "boards/nerdaxegamma.h"
 #include "boards/nerdaxegaia.h"
+#include "boards/nerdaxegaiapro.h"
 #include "boards/nerdeko.h"
 #include "boards/nerdhaxegamma.h"
 #include "boards/nerdoctaxegamma.h"
@@ -259,6 +260,9 @@ extern "C" void app_main(void)
 #endif
 #ifdef NERDAXEGAIA
     Board *board = new NerdaxeGaia();
+#endif
+#ifdef NERDAXEGAIAPRO
+    Board *board = new NerdaxeGaiaPro();
 #endif
 #ifdef NERDHAXEGAMMA
     Board *board = new NerdHaxeGamma();
