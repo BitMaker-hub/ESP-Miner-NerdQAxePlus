@@ -12,12 +12,13 @@ NerdaxeGaiaPro::NerdaxeGaiaPro() : NerdaxeGaia()
     m_tpsOcWarnA   = 40.0f;
     m_tpsOcFaultA  = 52.0f;
 
-    // 2-phase VR gives more current headroom: extend the ASIC frequency scale up,
-    // bump the default a couple of steps and pair it with a little more core voltage.
-    m_asicFrequencies = {300, 320, 340, 350, 360, 380, 400, 420, 440, 460, 480, 500};
+    // 2-phase VR gives more current headroom: extend the ASIC frequency scale up to
+    // 650 MHz for testing, keep a safe default, and offer more core voltage to pair
+    // with the high frequencies.
+    m_asicFrequencies = {300, 350, 400, 425, 450, 475, 500, 525, 550, 575, 600, 625, 650};
     m_defaultAsicFrequency = m_asicFrequency = 400;
-    m_absMaxAsicFrequency  = 550;   // hard ceiling for manual input
-    m_asicVoltages = {900, 920, 940, 960, 980, 1000, 1020, 1040, 1060, 1080};
+    m_absMaxAsicFrequency  = 650;   // hard ceiling for manual input (test headroom)
+    m_asicVoltages = {900, 940, 960, 980, 1000, 1020, 1040, 1060, 1080, 1100, 1150, 1200};
     m_defaultAsicVoltageMillis = m_asicVoltageMillis = 960;
 
     // Gauge ceilings for the doubled VR capacity (display only, not a runtime cutoff).
