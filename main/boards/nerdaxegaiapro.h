@@ -10,4 +10,7 @@
 class NerdaxeGaiaPro : public NerdaxeGaia {
   public:
     NerdaxeGaiaPro();
+
+    // Report the real 12V board input power (the base estimate only covers the VR).
+    float getPin() override;
 };

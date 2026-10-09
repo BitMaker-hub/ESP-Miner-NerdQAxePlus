@@ -1,4 +1,5 @@
 #include "nerdaxegaiapro.h"
+#include "drivers/nerdaxe/TPS546.h"
 
 NerdaxeGaiaPro::NerdaxeGaiaPro() : NerdaxeGaia()
 {
@@ -27,4 +28,15 @@ NerdaxeGaiaPro::NerdaxeGaiaPro() : NerdaxeGaia()
 
     // Reuse the Gaia on-device artwork (the Gaia ctor only sets it under NERDAXEGAIA).
     m_theme = new ThemeNerdaxegaia();
+}
+
+// The base getPin() (Vout*Iout + 5W) only models the VR input. Calibrated against two
+// bench points (inline ammeter on the 12V): real board input = VR output over ~92%
+// efficiency plus ~9W of housekeeping (ESP, display, fan) that the TPS546 cannot see.
+//   650MHz: 43.1/0.92 + 9 = 55.9 W (measured 56.1)
+//   600MHz: 36.5/0.92 + 9 = 48.7 W (measured 48.9)
+// The ~9W is mostly the fan at full load; at low load/temperature it reads a little high.
+float NerdaxeGaiaPro::getPin()
+{
+    return (TPS546_get_vout() * TPS546_get_iout()) / 0.92f + 9.0f;
 }
